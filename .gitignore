@@ -1,7 +1,3 @@
 /.codex
-/requirements.txt
 /runs
-/test.py
-/test_hier.py
-/train.py
 /venv
