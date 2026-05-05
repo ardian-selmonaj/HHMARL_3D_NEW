@@ -6,6 +6,7 @@ from env.catalog import Catalog as c
 from terminations import ExtremeState, Overload, LowAltitude, Timeout, DeadAgent
 from env.utils import get_AO_TA_R, get2d_AO_TA_R, LLA2NEU, get_separate_deltas
 
+LAST_ACTIONS = False
 
 class BaseMission(ABC):
     """
@@ -18,6 +19,7 @@ class BaseMission(ABC):
     def __init__(self, config):
         self.log = logging.getLogger(__name__)
         self.config = config
+        self.shift = 4 if LAST_ACTIONS else 0
         self.load()
 
     def load(self):
@@ -25,7 +27,7 @@ class BaseMission(ABC):
         Load specific mission objects.
         """
         opp_obs_len = 13
-        self.obs_len = 17 + opp_obs_len
+        self.obs_len = 17 + self.shift + opp_obs_len
         
         self.velocity_max = 670
         self.map_size = getattr(self.config, 'map_size', 50) * 1000 # map size in m
@@ -86,67 +88,6 @@ class BaseMission(ABC):
             c.attitude_psi_rad,                 # 14. yaw/psi        (unit: rad)
         ]
 
-    def get_obs_TRACK(self, env, agent, **kwargs):
-        """
-        TRACK
-        15 own
-        13 opp
-        """
-
-        norm_obs = np.zeros(self.obs_len, dtype=np.float32)
-        ego_state = np.array(agent.get_property_values(self.state_var))
-        ego_cur_ned = LLA2NEU(*ego_state[:3], env.center_lon, env.center_lat, env.center_alt)
-        ego_feature = np.array([*ego_cur_ned, *(ego_state[3:6])])
-
-        norm_obs[0] = ego_cur_ned[0] * self.loc_scale + self.loc_offset         #north
-        norm_obs[1] = ego_cur_ned[1] * self.loc_scale + self.loc_offset         #east
-        norm_obs[2] = ego_cur_ned[2] * self.alt_scale + self.alt_offset         #altitude
-        norm_obs[3] = ego_state[3] * self.vel_scale + self.vel_offset           #north velocities
-        norm_obs[4] = ego_state[4] * self.vel_scale + self.vel_offset           #east velocities
-        norm_obs[5] = ego_state[5] * self.vel_scale + self.vel_offset           #up velocity
-        norm_obs[6:9] = ego_state[9:12]                                         #angular rates of roll, pitch and yaw in [rad/sec]
-        norm_obs[9], norm_obs[10] = np.cos(ego_state[12]), np.sin(ego_state[12])    #cos/sin of roll/phi
-        norm_obs[11], norm_obs[12] = np.cos(ego_state[13]), np.sin(ego_state[13])   #cos/sin of pitch/theta
-        norm_obs[13], norm_obs[14] = np.cos(ego_state[14]), np.sin(ego_state[14])   #cos/sin of yaw/psi
-
-        # fmt = lambda value: f"{value:.3f}".rstrip("0").rstrip(".")
-        # print("OWN: ")
-        # print(f"north {fmt(norm_obs[0])} -- east {fmt(norm_obs[1])} -- altitude {fmt(norm_obs[2])}")
-        # print(f"north vel {fmt(norm_obs[3])} -- east vel {fmt(norm_obs[4])} --- up vel {fmt(norm_obs[5])} \n ---- ")
-
-        opponent = self.get_closest_opp(agent)
-        if opponent:
-            opponent = opponent[0][0]
-            opp_state = np.array(opponent.get_property_values(self.state_var))
-            opp_cur_ned = LLA2NEU(*opp_state[:3], env.center_lon, env.center_lat, env.center_alt)
-            opp_feature = np.array([*opp_cur_ned, *(opp_state[3:6])])
-            a_a, a_t, _, side = get_AO_TA_R(ego_feature, opp_feature, return_side=True)
-            delta_x, delta_y, delta_z, delta_vx, delta_vy, delta_vz = get_separate_deltas(ego_feature, opp_feature)
-
-            norm_obs[15] = delta_x * self.loc_delta_scale + self.loc_delta_offset
-            norm_obs[16] = delta_y * self.loc_delta_scale + self.loc_delta_offset
-            norm_obs[17] = delta_z * self.alt_delta_scale + self.alt_delta_offset
-
-            norm_obs[18] = delta_vx * self.vel_delta_scale + self.vel_delta_offset
-            norm_obs[19] = delta_vy * self.vel_delta_scale + self.vel_delta_offset
-            norm_obs[20] = delta_vz * self.vel_delta_scale + self.vel_delta_offset
-
-            norm_obs[21] = a_a * self.aspect_target_scale + self.aspect_target_offset
-            norm_obs[22] = a_t * self.aspect_target_scale + self.aspect_target_offset
-            norm_obs[23] = side
-
-            norm_obs[24], norm_obs[25] = np.cos(opp_state[13]), np.sin(opp_state[13])  #cos/sin of pitch/theta
-            norm_obs[26], norm_obs[27] = np.cos(opp_state[14]), np.sin(opp_state[14])  #cos/sin of yaw/psi
-
-            # print("OPP:")
-            # print(f"delta x {fmt(norm_obs[15])} -- delta y {fmt(norm_obs[16])} -- delta z {fmt(norm_obs[17])}")
-            # print(f"delta vx {fmt(norm_obs[18])} -- delta vy {fmt(norm_obs[19])} -- delta vz {fmt(norm_obs[20])}")
-            # print(f"aspect {fmt(norm_obs[21])} -- target {fmt(norm_obs[22])}  \n")
-
-        assert not np.isnan(norm_obs).any(), self.log.error(f"Observation contains NaN values: {norm_obs}")
-
-        return norm_obs
-
     def get_obs(self, env, agent, **kwargs):
         """
         TRACK --> extended with missile and shot.
@@ -173,10 +114,9 @@ class BaseMission(ABC):
         norm_obs[15] = int(agent.cannon.alive)
         norm_obs[16] = agent.cannon.ammunition
 
-        # fmt = lambda value: f"{value:.3f}".rstrip("0").rstrip(".")
-        # print("OWN: ")
-        # print(f"north {fmt(norm_obs[0])} -- east {fmt(norm_obs[1])} -- altitude {fmt(norm_obs[2])}")
-        # print(f"north vel {fmt(norm_obs[3])} -- east vel {fmt(norm_obs[4])} --- up vel {fmt(norm_obs[5])} \n ---- ")
+        if LAST_ACTIONS:
+            acts = np.array(agent.get_property_values(self.action_var))
+            norm_obs[17:21] = acts
 
         opponent = self.get_closest_opp(agent)
         if opponent:
@@ -187,88 +127,20 @@ class BaseMission(ABC):
             a_a, a_t, _, side = get_AO_TA_R(ego_feature, opp_feature, return_side=True)
             delta_x, delta_y, delta_z, delta_vx, delta_vy, delta_vz = get_separate_deltas(ego_feature, opp_feature)
 
-            norm_obs[17] = delta_x * self.loc_delta_scale + self.loc_delta_offset
-            norm_obs[18] = delta_y * self.loc_delta_scale + self.loc_delta_offset
-            norm_obs[19] = delta_z * self.alt_delta_scale + self.alt_delta_offset
+            norm_obs[17+self.shift] = delta_x * self.loc_delta_scale + self.loc_delta_offset
+            norm_obs[18+self.shift] = delta_y * self.loc_delta_scale + self.loc_delta_offset
+            norm_obs[19+self.shift] = delta_z * self.alt_delta_scale + self.alt_delta_offset
 
-            norm_obs[20] = delta_vx * self.vel_delta_scale + self.vel_delta_offset
-            norm_obs[21] = delta_vy * self.vel_delta_scale + self.vel_delta_offset
-            norm_obs[22] = delta_vz * self.vel_delta_scale + self.vel_delta_offset
+            norm_obs[20+self.shift] = delta_vx * self.vel_delta_scale + self.vel_delta_offset
+            norm_obs[21+self.shift] = delta_vy * self.vel_delta_scale + self.vel_delta_offset
+            norm_obs[22+self.shift] = delta_vz * self.vel_delta_scale + self.vel_delta_offset
 
-            norm_obs[23] = a_a * self.aspect_target_scale + self.aspect_target_offset
-            norm_obs[24] = a_t * self.aspect_target_scale + self.aspect_target_offset
-            norm_obs[25] = side
+            norm_obs[23+self.shift] = a_a * self.aspect_target_scale + self.aspect_target_offset
+            norm_obs[24+self.shift] = a_t * self.aspect_target_scale + self.aspect_target_offset
+            norm_obs[25+self.shift] = side
 
-            norm_obs[26], norm_obs[27] = np.cos(opp_state[13]), np.sin(opp_state[13])  #cos/sin of pitch/theta
-            norm_obs[28], norm_obs[29] = np.cos(opp_state[14]), np.sin(opp_state[14])  #cos/sin of yaw/psi
-
-            # print("OPP:")
-            # print(f"delta x {fmt(norm_obs[15])} -- delta y {fmt(norm_obs[16])} -- delta z {fmt(norm_obs[17])}")
-            # print(f"delta vx {fmt(norm_obs[18])} -- delta vy {fmt(norm_obs[19])} -- delta vz {fmt(norm_obs[20])}")
-            # print(f"aspect {fmt(norm_obs[21])} -- target {fmt(norm_obs[22])}  \n")
-
-        assert not np.isnan(norm_obs).any(), self.log.error(f"Observation contains NaN values: {norm_obs}")
-
-        return norm_obs
-
-    def get_obs_OLD_CANNON(self, env, agent, **kwargs):
-        """
-        Convert simulation states into the format of observation_space. 
-        Normally, all values are normalized. 
-        a_a = aspect angle (relative bearing), a_t = target aspect, both are in ranges [0,180]. 
-
-        15 own
-        12 opp
-        """
-
-        norm_obs = np.zeros(self.obs_len, dtype=np.float32)
-        ego_state = np.array(agent.get_property_values(self.state_var))
-        ego_cur_ned = LLA2NEU(*ego_state[:3], env.center_lon, env.center_lat, env.center_alt)
-        ego_feature = np.array([*ego_cur_ned, *(ego_state[3:6])])
-
-        norm_obs[0] = ego_cur_ned[0] / (self.map_size/2)        #north
-        norm_obs[1] = ego_cur_ned[1] / (self.map_size/2)        #east
-        norm_obs[2] = ego_cur_ned[2] * self.alt_scale + self.alt_offset  #altitude
-        norm_obs[3] = np.clip(ego_state[6] / 600, 0, 1)         #airspeed, devided by max speed in m/s, clipped [0,1]
-        norm_obs[4:7] = ego_state[9:12]                         #angular rates of roll, pitch and yaw in [rad/sec]
-
-        # norm_obs[7], norm_obs[8] = np.cos(ego_state[7]), np.sin(ego_state[7])   #cos/sin of angle of attack -- UNNECESSARY--
-        # norm_obs[9], norm_obs[10] = np.cos(ego_state[8]), np.sin(ego_state[8])  #cos/sin of angle of sideslip -- UNNECESSARY--
-
-        norm_obs[7], norm_obs[8] = np.cos(ego_state[12]), np.sin(ego_state[12])  #cos/sin of roll/phi
-        norm_obs[9], norm_obs[10] = np.cos(ego_state[13]), np.sin(ego_state[13])  #cos/sin of pitch/theta
-        norm_obs[11], norm_obs[12] = np.cos(ego_state[14]), np.sin(ego_state[14])  #cos/sin of yaw/psi
-
-        norm_obs[13] = int(agent.cannon.alive)
-        norm_obs[14] = agent.cannon.ammunition
-
-        opponent = self.get_closest_opp(agent)
-        if opponent:
-            opponent = opponent[0][0]
-            opp_state = np.array(opponent.get_property_values(self.state_var))
-            opp_cur_ned = LLA2NEU(*opp_state[:3], env.center_lon, env.center_lat, env.center_alt)
-            opp_feature = np.array([*opp_cur_ned, *(opp_state[3:6])])
-            a_a, a_t, _, side = get_AO_TA_R(ego_feature, opp_feature, return_side=True)
-            _, _, dist, delta_alt = get2d_AO_TA_R(ego_feature, opp_feature, return_side=False, return_delta_z=True)
-
-            norm_obs[15] = opp_cur_ned[0] / (self.map_size/2)          #north
-            norm_obs[16] = opp_cur_ned[1] / (self.map_size/2)          #east
-
-            ### other dists ###
-            #norm_obs[18] = np.exp(-((dist/10000)**2))                      # too uniformly, 
-            #norm_obs[18] = np.clip(1-np.log(1+dist)/np.log(1+10000), 0,1)  # largest effect if dist < 3000
-            #norm_obs[18] = np.clip(1-np.sqrt(dist/10000), 0, 1)             # more uniformly compared to log function, but still gives more weight when approaching dist=0
-            
-            norm_obs[17] = np.clip(opp_state[6] / 600, 0, 1)            #airspeed
-            norm_obs[18] = np.exp(-((dist/10000)**2))                   #norm spatial distance in 2D -> scale to 1 the closer to target
-            norm_obs[19] = np.clip(delta_alt/self.altitude_delta,-1,1)  #norm altitude distance
-            norm_obs[20] = 1-np.clip(a_a/np.pi, 0, 1)                   #aspect angle / relative bearing (unit: rad, range: -pi, pi)
-            norm_obs[21] = 1-np.clip(a_t/np.pi, 0, 1)                   #target aspect                  (unit: rad, range: -pi, pi)
-            norm_obs[22] = side
-
-            norm_obs[23], norm_obs[24] = np.cos(opp_state[12]), np.sin(opp_state[12])  #cos/sin of roll/phi
-            norm_obs[25], norm_obs[26] = np.cos(opp_state[13]), np.sin(opp_state[13])  #cos/sin of pitch/theta
-            #norm_obs[25], norm_obs[26] = np.cos(opp_state[14]), np.sin(opp_state[14])  #cos/sin of yaw/psi
+            norm_obs[26+self.shift], norm_obs[27+self.shift] = np.cos(opp_state[13]), np.sin(opp_state[13])  #cos/sin of pitch/theta
+            norm_obs[28+self.shift], norm_obs[29+self.shift] = np.cos(opp_state[14]), np.sin(opp_state[14])  #cos/sin of yaw/psi
 
         assert not np.isnan(norm_obs).any(), self.log.error(f"Observation contains NaN values: {norm_obs}")
 
@@ -280,7 +152,7 @@ class BaseMission(ABC):
         """
         # aileron, elevator, rudder, throttle, shoot (bool)
         # self.action_space = spaces.MultiDiscrete([31, 31, 31, 31, 2])
-        self.action_space = spaces.MultiDiscrete([11, 11, 11, 11, 2])
+        self.action_space = spaces.MultiDiscrete([21, 11, 9, 9, 2])
     
     def load_act_vars(self):
         """
@@ -344,23 +216,24 @@ class BaseMission(ABC):
         norm_act = np.zeros(4)
 
         ### ABS ACT
-        # act_space = spaces.MultiDiscrete([21, 21, 21, 21, 2])
-        # scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.8, 0.8)
-        # norm_act[0] = action[0]*scale + offset
-        # norm_act[1] = action[1]*scale + offset
-        # norm_act[2] = action[2]*scale + offset
-
-        # scale, offset = self.shift_range(0, act_space.nvec[3]-1, 0.3, 0.9)
-        # norm_act[3] = action[3]*scale + offset
+        act_space = spaces.MultiDiscrete([21, 11, 9, 9, 2])
+        scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.75, 0.75)
+        norm_act[0] = action[0]*scale + offset
+        scale, offset = self.shift_range(0, act_space.nvec[1]-1, -0.75, 0.75)
+        norm_act[1] = action[1]*scale + offset
+        scale, offset = self.shift_range(0, act_space.nvec[2]-1, -0.5, 0.5)
+        norm_act[2] = action[2]*scale + offset
+        scale, offset = self.shift_range(0, act_space.nvec[3]-1, 0.3, 0.9)
+        norm_act[3] = action[3]*scale + offset
 
 
         ### REL ACT
-        act_space = spaces.MultiDiscrete([11, 11, 11, 11, 2])
-        scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.5, 0.5)
-        norm_act[0] = action[0]*scale + offset
-        norm_act[1] = action[1]*scale + offset
-        norm_act[2] = action[2]*scale + offset
-        norm_act[3] = action[3]*scale + offset
+        # act_space = spaces.MultiDiscrete([11, 11, 11, 11, 2])
+        # scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.5, 0.5)
+        # norm_act[0] = action[0]*scale + offset
+        # norm_act[1] = action[1]*scale + offset
+        # norm_act[2] = action[2]*scale + offset
+        # norm_act[3] = action[3]*scale + offset
 
         return norm_act
 

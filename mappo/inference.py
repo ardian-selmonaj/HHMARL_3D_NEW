@@ -12,6 +12,7 @@ from networks import build_actor_critic, act_with_policies
 from envs import get_environment
 from main import process_args
 
+RENDER = True
 
 def load_checkpoint(restore_path, device):
     path = restore_path
@@ -24,22 +25,26 @@ def load_checkpoint(restore_path, device):
     return ckpt
 
 
-def run_inference(num_episodes=10, render=False):
+def run_inference(num_episodes=10):
     # Reuse the exact training config so the network architecture matches the checkpoint.
     args, _, device = process_args(tyro.cli(Args))
-    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/main_aircombat_cannon/L1_cannon_V_Relu_TD098_RNN"
+
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
+    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_cannon_L2/L2_cannon_I_Relu_TD095"
+    # args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_track_L2/L2_track_II_Tanh_TD095"
     args.env_type = "aircombat"
-    args.env_name = "cannon/L1_cannon"
+    # args.env_name = "track/L1_track"
+    args.env_name = "cannon/L2_cannon"
     args.actor_hidden_dim = 100
     args.critic_hidden_dim = 100
-    args.rnn = True
+    args.rnn = False
     args.use_ReLU = True
     args.avail_actions = False
     args.torch_compile = False
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 
-    env = get_environment(args.env_type, args.env_name, args.agent_ids, kwargs={})
+    env = get_environment(args.env_type, args.env_name, args.agent_ids, kwargs)
     actors, _ = build_actor_critic(
         args, env.get_obs_size(), env.get_action_space(),
         env.get_state_size(), env.n_agents, device,
@@ -64,7 +69,7 @@ def run_inference(num_episodes=10, render=False):
             obs_t = torch.as_tensor(obs, device=device).unsqueeze(0)  # (1, A, D)
             with torch.no_grad():
                 actions, _, _, rnn_hxs = act_with_policies(
-                    args, actors, obs_t, rnn_hxs=rnn_hxs, masks=masks,
+                    args, actors, obs_t, rnn_hxs=rnn_hxs, masks=masks, deterministic=True,
                 )
             actions_np = actions[0].cpu().numpy()  # (A, K)
             actions_dict = {k: actions_np[i] for i, k in enumerate(agent_keys)}
@@ -75,7 +80,7 @@ def run_inference(num_episodes=10, render=False):
             ep_len += 1
             done = done_dict["all"]
 
-            if render:
+            if RENDER:
                 env.env.render()
 
         ep_rewards.append(ep_reward)

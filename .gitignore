@@ -1,3 +1,4 @@
 /.codex
 /runs
 /venv
+__pycache__

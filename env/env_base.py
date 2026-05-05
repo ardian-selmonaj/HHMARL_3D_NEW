@@ -147,15 +147,17 @@ class AircraftEnv(gym.Env):
         for aid, agent in self.agents.items():
             if not agent.alive:
                 continue
-            mission = agent.mission
-            act = mission.get_action(action=action.get(aid), agent=agent, env=self)
-            if not agent.is_learning and self.training_level <= 2:
-                agent.set_property_values(mission.action_var, act)
-            else:
-                act_vals = agent.get_property_values(mission.action_var)
-                for k, v in enumerate(act_vals):
-                    act[k] += v
-                agent.set_property_values(mission.action_var, act)
+
+            act = agent.mission.get_action(action=action.get(aid), agent=agent, env=self)
+            agent.set_property_values(agent.mission.action_var, act)
+            
+            # if not agent.is_learning and self.training_level <= 2:
+            #     agent.set_property_values(mission.action_var, act)
+            # else:
+            #     act_vals = agent.get_property_values(mission.action_var)
+            #     for k, v in enumerate(act_vals):
+            #         act[k] += v
+            #     agent.set_property_values(mission.action_var, act)
 
         # Phase 1: physics steps
         for _ in range(self.sim_steps):

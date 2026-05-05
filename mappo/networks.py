@@ -149,7 +149,7 @@ class Actor(nn.Module):
         else:
             raise ValueError(f"Unknown action space type: {self.space_type}")
 
-    def act(self, x, avail_action=None, action=None, rnn_hxs=None, masks=None):
+    def act(self, x, avail_action=None, action=None, rnn_hxs=None, masks=None, deterministic=False):
         """Returns (action, log_prob, entropy, new_rnn_hxs).
 
         action shape: (N, K) for all space types. For discrete, K=1.
@@ -166,7 +166,7 @@ class Actor(nn.Module):
                 logits = logits.masked_fill(~avail_action, -1e9)
             dist = Categorical(logits=logits)
             if action is None:
-                sampled = dist.sample()
+                sampled = logits.argmax(dim=-1) if deterministic else dist.sample()
             else:
                 # action may be (N,) or (N, 1); squeeze trailing dim for Categorical.
                 sampled = action.squeeze(-1) if action.dim() > 1 else action
@@ -183,7 +183,7 @@ class Actor(nn.Module):
                 for head in self.output:
                     logits = head(x)
                     dist = Categorical(logits=logits)
-                    s = dist.sample()
+                    s = logits.argmax(dim=-1) if deterministic else dist.sample()
                     samples.append(s)
                     lps.append(dist.log_prob(s))
                     ents.append(dist.entropy())
@@ -209,7 +209,7 @@ class Actor(nn.Module):
         std = self.log_std.exp().expand_as(mean)
         dist = Normal(mean, std)
         if action is None:
-            action = dist.sample()
+            action = mean if deterministic else dist.sample()
         log_prob = dist.log_prob(action).sum(dim=-1)
         entropy = dist.entropy().sum(dim=-1)
         return action, log_prob, entropy, rnn_hxs
@@ -298,7 +298,7 @@ def build_actor_critic(args, obs_dim, action_space, state_dim, num_agents, devic
     return actors, critic
 
 
-def act_with_policies(args, actors, obs, avail_actions=None, action=None, rnn_hxs=None, masks=None):
+def act_with_policies(args, actors, obs, avail_actions=None, action=None, rnn_hxs=None, masks=None, deterministic=False):
     """
     Run actors for one rollout step.
 
@@ -307,6 +307,7 @@ def act_with_policies(args, actors, obs, avail_actions=None, action=None, rnn_hx
     action: (E, A, K) or None
     rnn_hxs: (E, A, rnn_num_layers, H) or None
     masks: (E,) float — 1=continue, 0=episode-start; broadcast per agent; or None
+    deterministic: if True, use argmax/mean instead of sampling.
 
     Returns: (actions, log_probs, entropy, new_rnn_hxs)
       shapes (E, A, K), (E, A), (E, A), (E, A, L, H) or None
@@ -333,7 +334,7 @@ def act_with_policies(args, actors, obs, avail_actions=None, action=None, rnn_hx
 
         out_action, log_prob, entropy, new_flat_hxs = actors["actor_0"].act(
             flat_obs, avail_action=flat_avail, action=flat_action,
-            rnn_hxs=flat_hxs, masks=flat_masks,
+            rnn_hxs=flat_hxs, masks=flat_masks, deterministic=deterministic,
         )
         K = out_action.size(-1)
         new_hxs = None
@@ -361,6 +362,7 @@ def act_with_policies(args, actors, obs, avail_actions=None, action=None, rnn_hx
             action=action_i,
             rnn_hxs=hxs_i,
             masks=masks_i,
+            deterministic=deterministic,
         )
         act_list.append(out_action)
         lp_list.append(log_prob)
