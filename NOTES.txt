@@ -1,0 +1,23 @@
+tmux 5: L1 track spo V2
+
+tmux 6: L3 cannon ppo
+
+
+#####################
+
+
+hyperparams:
+
+- TD: 0.92
+- gamma: 0.99
+- lr: 3e-4
+- nn_dim: 100 (or 128)
+- no rnn
+- maybe attention? 
+
+
+
+###################
+
+SPO is behaving more conservative compared to PPO. 
+extend ppo_clip to allow for larger policy ratios, or increase learning rate for SPO. 

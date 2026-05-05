@@ -1,0 +1,79 @@
+import math
+import numpy as np
+from rewards.reward_base import BaseRewardFunction
+
+
+class HeadingReward(BaseRewardFunction):
+    """
+    Measure the difference between the current heading and the target heading
+    """
+    def __init__(self, config):
+        super().__init__(config)
+        self.reward_item_names = [self.__class__.__name__ + item for item in ['', '_heading', '_alt', '_roll', '_speed']]
+        self.with_opp = getattr(self.config, f'{self.__class__.__name__}_with_opp', True)
+
+    def get_reward(self, task, env, agent_id, action=None):
+        """
+        Reward is built as a geometric mean of scaled gaussian rewards for each relevant variable
+        """
+        reward = self.head_rew(env, agent_id)
+        return self._process(reward, agent_id)
+
+    def head_rew(self, env, agent_id):
+        a_a, a_t, a_r, a_rr, dist = super().get_orientation_metrics(env, agent_id, deg=True)
+        delta_x, delta_y, delta_z, delta_vx, delta_vy, delta_vz = super().get_delta_values(env, agent_id, in_km=True)
+        
+        if self.with_opp:
+
+            head_scale = 10
+            head_a = math.exp(-((a_a/head_scale)**2))
+            head_t = math.exp(-((a_t/(head_scale))**2))
+
+            def delta_loc(x):
+                # in [KM] 
+                dist_scale = 4
+                dist_offset = 2
+                if x < dist_offset:
+                    dist_r = 1
+                else:
+                    dist_r = math.exp(-(((x-dist_offset)/dist_scale)**4))
+                return dist_r
+
+            def delta_vel(x):
+                # in [m/s]
+                vel_scale = 100
+                vel_offset = 30
+                if x < vel_offset:
+                    vel_r = 1
+                else:
+                    vel_r = math.exp(-(((x-vel_offset)/vel_scale)**2))
+                return vel_r
+
+            h = 0.35 * head_a + 0.65 * head_t
+            d = 0.333 * delta_loc(delta_x) + 0.333 * delta_loc(delta_y) + 0.333 * delta_loc(delta_z)
+            v = 0.5 * delta_vel(delta_vx) + 0.5 * delta_vel(delta_vy)
+
+            roll_scale = 15
+            roll_r = math.exp(-((a_r/roll_scale)**2))
+            roll_rr = math.exp(-((a_rr/roll_scale)**2))
+            r = roll_r*roll_rr
+            reward = h * (d+v) + 0.7*head_a*head_t*r
+            
+            return reward
+        
+        else:
+            dist_scale = 7000
+            if dist < 4000:
+                dist_r = 1
+            else:
+                dist_r = math.exp(-(((dist-4000)/dist_scale)**4))
+
+            head_scale = 20
+            head_a = math.exp(-((a_a/head_scale)**2))
+
+            roll_scale = 20
+            roll_r = math.exp(-((a_r/roll_scale)**2))
+
+            reward = (dist_r-1) * (0.5*(1-head_a) + 0.5*(1-roll_r))
+
+            return reward
