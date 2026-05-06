@@ -217,9 +217,9 @@ class BaseMission(ABC):
 
         ### ABS ACT
         act_space = spaces.MultiDiscrete([21, 11, 9, 9, 2])
-        scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.75, 0.75)
+        scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.8, 0.8)
         norm_act[0] = action[0]*scale + offset
-        scale, offset = self.shift_range(0, act_space.nvec[1]-1, -0.75, 0.75)
+        scale, offset = self.shift_range(0, act_space.nvec[1]-1, -0.8, 0.8)
         norm_act[1] = action[1]*scale + offset
         scale, offset = self.shift_range(0, act_space.nvec[2]-1, -0.5, 0.5)
         norm_act[2] = action[2]*scale + offset

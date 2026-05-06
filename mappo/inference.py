@@ -30,14 +30,14 @@ def run_inference(num_episodes=10):
     args, _, device = process_args(tyro.cli(Args))
 
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
-    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_cannon_L2/L2_cannon_I_Relu_TD095"
+    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/abs_act/track_L1_last_act_rnn"
     # args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_track_L2/L2_track_II_Tanh_TD095"
     args.env_type = "aircombat"
-    # args.env_name = "track/L1_track"
-    args.env_name = "cannon/L2_cannon"
-    args.actor_hidden_dim = 100
-    args.critic_hidden_dim = 100
-    args.rnn = False
+    args.env_name = "track/L1_track"
+    # args.env_name = "cannon/L2_cannon"
+    args.actor_hidden_dim = 128
+    args.critic_hidden_dim = 128
+    args.rnn = True
     args.use_ReLU = True
     args.avail_actions = False
     args.torch_compile = False
@@ -74,11 +74,11 @@ def run_inference(num_episodes=10):
             actions_np = actions[0].cpu().numpy()  # (A, K)
             actions_dict = {k: actions_np[i] for i, k in enumerate(agent_keys)}
 
-            obs_dict, reward_dict, done_dict, _, _ = env.step(actions_dict)
+            obs_dict, reward_dict, done_dict, trunc, _ = env.step(actions_dict)
             obs = np.array([obs_dict[k] for k in agent_keys], dtype=np.float32)
             ep_reward += float(np.mean([reward_dict[k] for k in agent_keys]))
             ep_len += 1
-            done = done_dict["all"]
+            done = done_dict["all"] or trunc["all"]
 
             if RENDER:
                 env.env.render()
