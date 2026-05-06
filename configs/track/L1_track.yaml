@@ -56,7 +56,7 @@ HeadingReward_scale: 0.05
 ShootPenaltyReward_posture_punish: false
 ShootPenaltyReward_scale: 1.0
 
-RollPitch_scale: 0.75
+RollPitch_scale: 0.5
 
 ## -- TERMINATIONS -- ##:
 # ExtremeState (incl out-of-boundary), Overload (accel.), 
