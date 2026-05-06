@@ -30,14 +30,14 @@ def run_inference(num_episodes=10):
     args, _, device = process_args(tyro.cli(Args))
 
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
-    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/abs_act/track_L1_last_act_rnn"
+    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/abs_act_roll/track_L1_rew0_last_act"
     # args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_track_L2/L2_track_II_Tanh_TD095"
     args.env_type = "aircombat"
     args.env_name = "track/L1_track"
     # args.env_name = "cannon/L2_cannon"
     args.actor_hidden_dim = 128
     args.critic_hidden_dim = 128
-    args.rnn = True
+    args.rnn = False
     args.use_ReLU = True
     args.avail_actions = False
     args.torch_compile = False
