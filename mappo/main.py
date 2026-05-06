@@ -21,31 +21,33 @@ Env is optimized from Claude!
 --> RNN were trained with TD 0.98 in L1 and L1.5 -> renamed to 0.95 -> from L2: trained with TD 0.95
 """
 
-RESTORE_NAME = "II_Tanh_TD095"
+RUN_NAME = "last_act_rnn"
 
 def process_args(args):
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
-    #args.restore_path = f"/home/sardian/HHMARL_3D_NEW/runs/aircombat_cannon_L2/L2_cannon_{RESTORE_NAME}"
-    #args.restore_path = f"/home/sardian/HHMARL_3D_NEW/runs/aircombat_track_L1/L1_track_{RESTORE_NAME}"
 
     args.env_name = "track"
     args.level = 1
+
+    #args.restore_path = 
+    args.run_name = f"{RUN_NAME}"
+    args.exp_name = f"{args.env_name}_L{args.level}"
 
     args.env_name = f"{args.env_name}/L{args.level}_{args.env_name}"
     args.num_envs = 20
     args.batch_size = 10000
     args.train_epochs = 10
-    args.ppo_clip = 0.4 #0.25
+    args.ppo_clip = 0.25
     args.minibatch_size = 5000
-    args.learning_rate_actor = 4e-4 #3e-4
-    args.learning_rate_critic = 4e-4 #3e-4
-    args.actor_hidden_dim = 100
-    args.critic_hidden_dim = 100
-    args.rnn = False
+    args.learning_rate_actor = 3e-4
+    args.learning_rate_critic = 3e-4
+    args.actor_hidden_dim = 128
+    args.critic_hidden_dim = 128
+    args.rnn = True
 
-    args.spo = True
-    args.use_ReLU = False
-    args.td_lambda = 0.95
+    args.spo = False
+    args.use_ReLU = True
+    args.td_lambda = 0.92
     args.entropy_decay = [[0, 0.1], [3e6, 0]]
     args.total_timesteps = 20000000
 
@@ -58,8 +60,6 @@ def process_args(args):
     args.avail_actions = False
     args.torch_compile = False
     args.cuda_id = 1
-
-    args.run_name = f"{args.env_type}_{args.env_name}_{RESTORE_NAME}_SPO"
 
     batch_alignment = math.lcm(args.num_envs, args.minibatch_size)
     args.batch_size = int(math.ceil(args.batch_size / batch_alignment) * batch_alignment)

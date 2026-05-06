@@ -1,6 +1,6 @@
-tmux 5: L1 track spo V2
+tmux 5: L1 track spo V2 --> nearly same. 
 
-tmux 6: L3 cannon ppo
+tmux 6: L1 track -- rel actions
 
 
 #####################
