@@ -6,7 +6,7 @@ from env.catalog import Catalog as c
 from terminations import ExtremeState, Overload, LowAltitude, Timeout, DeadAgent
 from env.utils import get_AO_TA_R, get2d_AO_TA_R, LLA2NEU, get_separate_deltas
 
-LAST_ACTIONS = True
+LAST_ACTIONS = False
 
 class BaseMission(ABC):
     """
@@ -90,9 +90,6 @@ class BaseMission(ABC):
 
     def get_obs(self, env, agent, **kwargs):
         """
-        TRACK --> extended with missile and shot.
-        17 own
-        13 opp
         """
 
         norm_obs = np.zeros(self.obs_len, dtype=np.float32)
@@ -152,7 +149,7 @@ class BaseMission(ABC):
         """
         # aileron, elevator, rudder, throttle, shoot (bool)
         # self.action_space = spaces.MultiDiscrete([31, 31, 31, 31, 2])
-        self.action_space = spaces.MultiDiscrete([21, 11, 9, 9, 2])
+        self.action_space = spaces.MultiDiscrete([17, 11, 9, 9, 2])
     
     def load_act_vars(self):
         """
@@ -216,7 +213,7 @@ class BaseMission(ABC):
         norm_act = np.zeros(4)
 
         ### ABS ACT
-        act_space = spaces.MultiDiscrete([21, 11, 9, 9, 2])
+        act_space = spaces.MultiDiscrete([17, 11, 9, 9, 2])
         scale, offset = self.shift_range(0, act_space.nvec[0]-1, -0.8, 0.8)
         norm_act[0] = action[0]*scale + offset
         scale, offset = self.shift_range(0, act_space.nvec[1]-1, -0.8, 0.8)
