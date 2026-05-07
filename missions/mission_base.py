@@ -6,7 +6,7 @@ from env.catalog import Catalog as c
 from terminations import ExtremeState, Overload, LowAltitude, Timeout, DeadAgent
 from env.utils import get_AO_TA_R, get2d_AO_TA_R, LLA2NEU, get_separate_deltas
 
-LAST_ACTIONS = False
+LAST_ACTIONS = True
 
 class BaseMission(ABC):
     """

@@ -3,45 +3,45 @@ import numpy as np
 from rewards.reward_base import BaseRewardFunction
 
 
-class RollPitch(BaseRewardFunction):
-    """
-    Punish abrupt changes in roll and pitch.
-    """
-    def __init__(self, config):
-        super().__init__(config)
-        self.prev_roll = {}
-        self.prev_pitch = {}
-        self.max_delta_roll = 6
-        self.max_delta_pitch = 3
+# class RollPitch(BaseRewardFunction):
+#     """
+#     Punish abrupt changes in roll and pitch.
+#     """
+#     def __init__(self, config):
+#         super().__init__(config)
+#         self.prev_roll = {}
+#         self.prev_pitch = {}
+#         self.max_delta_roll = 6
+#         self.max_delta_pitch = 3
 
-    def get_reward(self, task, env, agent_id, action=None):
-        return self._process(self.roll_pitch_punish(env, agent_id, action), agent_id)
+#     def get_reward(self, task, env, agent_id, action=None):
+#         return self._process(self.roll_pitch_punish(env, agent_id, action), agent_id)
     
-    def reset(self, task, env):
-        self.prev_pitch.clear()
-        self.prev_roll.clear()
-        super().reset(task, env)
+#     def reset(self, task, env):
+#         self.prev_pitch.clear()
+#         self.prev_roll.clear()
+#         super().reset(task, env)
 
-    def roll_pitch_punish(self, env, agent_id, action):
-        rew = 0
-        current_roll = action[agent_id][0]
-        current_pitch = action[agent_id][1]
+#     def roll_pitch_punish(self, env, agent_id, action):
+#         rew = 0
+#         current_roll = action[agent_id][0]
+#         current_pitch = action[agent_id][1]
 
-        if env.steps <= 1 or agent_id not in self.prev_roll:
-            self.prev_roll[agent_id] = current_roll
-            self.prev_pitch[agent_id] = current_pitch
-            return rew
+#         if env.steps <= 1 or agent_id not in self.prev_roll:
+#             self.prev_roll[agent_id] = current_roll
+#             self.prev_pitch[agent_id] = current_pitch
+#             return rew
         
-        if abs(current_roll - self.prev_roll[agent_id]) > self.max_delta_roll:
-            rew -= 0.1
+#         if abs(current_roll - self.prev_roll[agent_id]) > self.max_delta_roll:
+#             rew -= 0.1
 
-        if abs(current_pitch - self.prev_pitch[agent_id]) > self.max_delta_pitch:
-            rew -= 0.1
+#         if abs(current_pitch - self.prev_pitch[agent_id]) > self.max_delta_pitch:
+#             rew -= 0.1
 
-        self.prev_roll[agent_id] = current_roll
-        self.prev_pitch[agent_id] = current_pitch
+#         self.prev_roll[agent_id] = current_roll
+#         self.prev_pitch[agent_id] = current_pitch
 
-        return rew
+#         return rew
 
 
 
@@ -94,64 +94,64 @@ class RollPitch(BaseRewardFunction):
 #         return -(rate_penalty + accel_penalty)
 
 
-# class RollPitch(BaseRewardFunction):
-#     """
-#     Smooth penalty on aileron/elevator command rate and command jerk.
+class RollPitch(BaseRewardFunction):
+    """
+    Smooth penalty on aileron/elevator command rate and command jerk.
 
-#     The environment passes raw discrete action indices into rewards, so this
-#     first maps the roll/pitch action bins back to their absolute command values.
-#     """
-#     def __init__(self, config):
-#         super().__init__(config)
-#         self.roll_min = -0.8
-#         self.roll_max = 0.8
-#         self.pitch_min = -0.8
-#         self.pitch_max = 0.8
+    The environment passes raw discrete action indices into rewards, so this
+    first maps the roll/pitch action bins back to their absolute command values.
+    """
+    def __init__(self, config):
+        super().__init__(config)
+        self.roll_min = -0.8
+        self.roll_max = 0.8
+        self.pitch_min = -0.8
+        self.pitch_max = 0.8
 
-#         self.rate_coef = np.array([0.045, 0.0225], dtype=np.float64)
-#         self.jerk_coef = np.array([0.12, 0.06], dtype=np.float64)
+        self.rate_coef = np.array([0.045, 0.0225], dtype=np.float64)
+        self.jerk_coef = np.array([0.12, 0.06], dtype=np.float64)
 
-#         self.prev_cmd = {}
-#         self.prev_delta = {}
+        self.prev_cmd = {}
+        self.prev_delta = {}
 
-#     def reset(self, task, env):
-#         self.prev_cmd.clear()
-#         self.prev_delta.clear()
-#         super().reset(task, env)
+    def reset(self, task, env):
+        self.prev_cmd.clear()
+        self.prev_delta.clear()
+        super().reset(task, env)
 
-#     def get_reward(self, task, env, agent_id, action=None):
-#         return self._process(self._smooth_penalty(task, env, agent_id, action), agent_id)
+    def get_reward(self, task, env, agent_id, action=None):
+        return self._process(self._smooth_penalty(task, env, agent_id, action), agent_id)
 
-#     def _smooth_penalty(self, task, env, agent_id, action):
-#         if action is None or agent_id not in action:
-#             return 0.0
+    def _smooth_penalty(self, task, env, agent_id, action):
+        if action is None or agent_id not in action:
+            return 0.0
 
-#         current_cmd = self._scaled_roll_pitch_cmd(task, action[agent_id])
-#         if env.steps <= 1 or agent_id not in self.prev_cmd:
-#             self.prev_cmd[agent_id] = current_cmd
-#             self.prev_delta[agent_id] = np.zeros(2, dtype=np.float64)
-#             return 0.0
+        current_cmd = self._scaled_roll_pitch_cmd(task, action[agent_id])
+        if env.steps <= 1 or agent_id not in self.prev_cmd:
+            self.prev_cmd[agent_id] = current_cmd
+            self.prev_delta[agent_id] = np.zeros(2, dtype=np.float64)
+            return 0.0
 
-#         delta = current_cmd - self.prev_cmd[agent_id]
-#         jerk = delta - self.prev_delta[agent_id]
+        delta = current_cmd - self.prev_cmd[agent_id]
+        jerk = delta - self.prev_delta[agent_id]
 
-#         rate_penalty = np.sum(self.rate_coef * np.square(delta))
-#         jerk_penalty = np.sum(self.jerk_coef * np.square(jerk))
+        rate_penalty = np.sum(self.rate_coef * np.square(delta))
+        jerk_penalty = np.sum(self.jerk_coef * np.square(jerk))
 
-#         self.prev_cmd[agent_id] = current_cmd
-#         self.prev_delta[agent_id] = delta
+        self.prev_cmd[agent_id] = current_cmd
+        self.prev_delta[agent_id] = delta
 
-#         return -float(rate_penalty + jerk_penalty)
+        return -float(rate_penalty + jerk_penalty)
 
-#     def _scaled_roll_pitch_cmd(self, task, raw_action):
-#         raw_action = np.asarray(raw_action, dtype=np.float64)
-#         nvec = np.asarray(task.action_space.nvec, dtype=np.float64)
-#         roll = self._scale_action(raw_action[0], nvec[0], self.roll_min, self.roll_max)
-#         pitch = self._scale_action(raw_action[1], nvec[1], self.pitch_min, self.pitch_max)
-#         return np.array([roll, pitch], dtype=np.float64)
+    def _scaled_roll_pitch_cmd(self, task, raw_action):
+        raw_action = np.asarray(raw_action, dtype=np.float64)
+        nvec = np.asarray(task.action_space.nvec, dtype=np.float64)
+        roll = self._scale_action(raw_action[0], nvec[0], self.roll_min, self.roll_max)
+        pitch = self._scale_action(raw_action[1], nvec[1], self.pitch_min, self.pitch_max)
+        return np.array([roll, pitch], dtype=np.float64)
 
-#     @staticmethod
-#     def _scale_action(action_value, num_bins, low, high):
-#         if num_bins <= 1:
-#             return float(low)
-#         return float(action_value * (high - low) / (num_bins - 1) + low)
+    @staticmethod
+    def _scale_action(action_value, num_bins, low, high):
+        if num_bins <= 1:
+            return float(low)
+        return float(action_value * (high - low) / (num_bins - 1) + low)
