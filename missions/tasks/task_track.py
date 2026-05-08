@@ -18,7 +18,7 @@ class TrackTask(BaseMission):
             ShootPenaltyReward(self.config),
             EventDrivenReward(self.config),
             HeadingReward(self.config), 
-            RollPitch(self.config)
+            # RollPitch(self.config)
         ]
 
     # def load_terminations(self):
