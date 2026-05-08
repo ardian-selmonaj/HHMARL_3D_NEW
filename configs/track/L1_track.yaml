@@ -51,7 +51,7 @@ battle_field_center: [0.0, 0.0, 0.0]
 # reward config
 
 HeadingReward_with_opp: true
-HeadingReward_scale: 0.05
+HeadingReward_scale: 0.1 #0.05
 
 ShootPenaltyReward_posture_punish: false
 ShootPenaltyReward_scale: 1.0

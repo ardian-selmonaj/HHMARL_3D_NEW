@@ -53,20 +53,28 @@ class HeadingReward(BaseRewardFunction):
             d = 0.333 * delta_loc(delta_x) + 0.333 * delta_loc(delta_y) + 0.333 * delta_loc(delta_z)
             v = 0.5 * delta_vel(delta_vx) + 0.5 * delta_vel(delta_vy)
 
-            roll_scale = 17
-            roll_r = math.exp(-((a_r/roll_scale)**2))
-            roll_rr = math.exp(-((a_rr/roll_scale)**2))
+            # roll_scale = 17
+            # roll_r = math.exp(-((a_r/roll_scale)**2))
+            # roll_rr = math.exp(-((a_rr/roll_scale)**2))
 
             # H0
-            r = roll_r*roll_rr
-            reward = h * (d+v) + 0.7*head_a*head_t*r
+            # r = roll_r*roll_rr
+            # reward = h * (d+v) + 0.7*head_a*head_t*r
 
-            # H1
-            r = ((roll_r-0.5)*2)*roll_rr
-            reward = h * (d+v) + head_a*head_t*r
+            # # H1
+            # r = ((roll_r-0.5)*2)*roll_rr
+            # reward = h * (d+v) + head_a*head_t*r
 
             # H2
-            reward = h * (d+v) + 0.6*head_a*head_t*roll_rr + 0.4*((roll_r-0.5)*2)*head_a
+            # reward = h * (d+v) + 0.6*head_a*head_t*roll_rr + 0.4*((roll_r-0.5)*2)*head_a ## OK
+
+            # H3
+            h = 0.3 * head_a + 0.7 * head_t
+            roll_scale = 20 #head_a: 17-> power2, >20 -> power4, head_t: 20->power2
+            roll_r = math.exp(-((a_r/roll_scale)**2))
+            roll_rr = math.exp(-((a_rr/roll_scale)**2))
+            # reward = h * (d+v) + head_a*((roll_r-0.5)*2 + (roll_rr-0.5)*2)
+            reward = h * (d+v) + head_t*((roll_r-0.5)*2 + (roll_rr-0.5)*2) # H3t
 
             return reward
         
