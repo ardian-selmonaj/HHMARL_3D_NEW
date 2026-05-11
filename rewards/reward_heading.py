@@ -69,12 +69,19 @@ class HeadingReward(BaseRewardFunction):
             # reward = h * (d+v) + 0.6*head_a*head_t*roll_rr + 0.4*((roll_r-0.5)*2)*head_a ## OK
 
             # H3
-            h = 0.3 * head_a + 0.7 * head_t
-            roll_scale = 20 #head_a: 17-> power2, >20 -> power4, head_t: 20->power2
-            roll_r = math.exp(-((a_r/roll_scale)**2))
-            roll_rr = math.exp(-((a_rr/roll_scale)**2))
-            # reward = h * (d+v) + head_a*((roll_r-0.5)*2 + (roll_rr-0.5)*2)
-            reward = h * (d+v) + head_t*((roll_r-0.5)*2 + (roll_rr-0.5)*2) # H3t
+            # h = 0.3 * head_a + 0.7 * head_t
+            # roll_scale = 25
+            # roll_r = math.exp(-((a_r/roll_scale)**4))
+            # roll_rr = math.exp(-((a_rr/roll_scale)**2))
+            # # reward = h * (d+v) + head_a*((roll_r-0.5)*2 + (roll_rr-0.5)*2)
+            # reward = h * (d+v) + head_a*((roll_r-0.5) + (roll_rr-0.5)*2) #H3r
+
+            # H4
+            h = 0.35 * head_a + 0.65 * head_t
+            roll_scale = 30 #25
+            roll_r = math.exp(-((a_r/roll_scale)**4))
+            roll_rr = math.exp(-((a_rr/(roll_scale*2))**2))
+            reward = h * (d+v) + h*((roll_r-0.5)*2 + (roll_rr-0.5)*2)
 
             return reward
         
