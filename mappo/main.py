@@ -18,7 +18,7 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "rewH4-30"
+RUN_NAME = "rewH5-05"
 
 def process_args(args):
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
