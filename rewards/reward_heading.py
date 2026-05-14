@@ -20,7 +20,7 @@ class HeadingReward(BaseRewardFunction):
         return self._process(reward, agent_id)
 
     def head_rew(self, env, agent_id):
-        a_a, a_t, a_r, a_rr, dist = super().get_orientation_metrics(env, agent_id, deg=True)
+        a_a, a_t, a_r, a_rr, a_pr, dist = super().get_orientation_metrics(env, agent_id, deg=True)
         delta_x, delta_y, delta_z, delta_vx, delta_vy, delta_vz = super().get_delta_values(env, agent_id, in_km=True)
         
         if self.with_opp:
@@ -89,13 +89,25 @@ class HeadingReward(BaseRewardFunction):
             # roll_rr = math.exp(-((a_rr/(roll_scale*2))**2))
             # reward = h * (d+v) + 0.5*h*((roll_r-0.5)*2 + (roll_rr-0.5)*2)
 
-            # H6:
+            # H6: GOOD
+            # h = 0.35 * head_a + 0.65 * head_t
+            # roll_scale = 40
+            # roll_rr_scale = 30
+            # roll_r = math.exp(-((a_r/roll_scale)**4))
+            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
+            # reward = h * (d+v) + h*(0.3*(roll_r-0.5)*2 + 0.7*(roll_rr-0.5)*2)
+
+
+            # H7
             h = 0.35 * head_a + 0.65 * head_t
-            roll_scale = 30 #40
-            roll_rr_scale = 30
+            roll_scale = 40 #35
+            roll_rr_scale = 30 #25
+            pitch_rr_scale = 20 #15
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            reward = h * (d+v) + h*(0.3*(roll_r-0.5)*2 + 0.7*(roll_rr-0.5)*2)
+            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            reward = h * (d+v) + h*(0.3*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.1*(pitch_rr-0.5)*2)
+
 
 
             return reward

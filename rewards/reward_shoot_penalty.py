@@ -11,7 +11,7 @@ class ShootPenaltyReward(BaseRewardFunction):
         self.posture_punish = getattr(self.config, f'{self.__class__.__name__}_posture_punish', False)
 
     def get_reward(self, task, env, aid, action=None):
-        a_a, _, _, _, dist = super().get_orientation_metrics(env, aid, deg=True)
+        a_a, _, _, _, _, dist = super().get_orientation_metrics(env, aid, deg=True)
         reward = 0
 
         if self.posture_punish:

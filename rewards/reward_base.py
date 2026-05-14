@@ -54,7 +54,8 @@ class BaseRewardFunction(ABC):
             c.velocities_v_east_mps,            # 4. v_east     (unit: m/s)
             c.velocities_v_up_mps,              # 5. v_up     (unit: m/s)
             c.attitude_roll_rad,                 # 6. roll     (deg)
-            c.velocities_p_rad_sec              # 7. roll rate
+            c.velocities_p_rad_sec,              # 7. roll rate
+            c.velocities_q_rad_sec              # 8. pitch rate
         ]
         ego_state = np.array(env.agents[agent_id].get_property_values(state_vars))
         ego_cur_ned = LLA2NEU(*ego_state[:3], env.center_lon, env.center_lat, env.center_alt)
@@ -68,10 +69,10 @@ class BaseRewardFunction(ABC):
         else:
             a_a, a_t, dist = get_AO_TA_R(ego_feature, opp_feature, return_side=False)
         if deg:
-            a_a, a_t, a_r, a_rr = np.rad2deg(a_a), np.rad2deg(a_t), np.rad2deg(ego_state[6]), np.rad2deg(ego_state[7])
+            a_a, a_t, a_r, a_rr, a_pr = np.rad2deg(a_a), np.rad2deg(a_t), np.rad2deg(ego_state[6]), np.rad2deg(ego_state[7]), np.rad2deg(ego_state[8])
         else:
-            a_r, a_rr = ego_state[6], ego_state[7]
-        return a_a, a_t, a_r, a_rr, dist
+            a_r, a_rr, a_pr = ego_state[6], ego_state[7], ego_state[8]
+        return a_a, a_t, a_r, a_rr, a_pr, dist
 
     def get_delta_values(self, env, agent_id, in_km=True):
         """
