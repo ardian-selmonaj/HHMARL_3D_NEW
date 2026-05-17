@@ -98,16 +98,34 @@ class HeadingReward(BaseRewardFunction):
             # reward = h * (d+v) + h*(0.3*(roll_r-0.5)*2 + 0.7*(roll_rr-0.5)*2)
 
 
-            # H7
-            h = 0.35 * head_a + 0.65 * head_t
+            # H7 # VERY GOOD, track_scale 0.1
+            # h = 0.35 * head_a + 0.65 * head_t
+            # roll_scale = 35
+            # roll_rr_scale = 25
+            # pitch_rr_scale = 15
+            # roll_r = math.exp(-((a_r/roll_scale)**4))
+            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
+            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            # reward = h * (d+v) + 0.7*h*(0.3*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.1*(pitch_rr-0.5)*2)
+
+            # H8
+            # h = 0.35 * head_a + 0.65 * head_t
+            # roll_scale = 35
+            # roll_rr_scale = 25
+            # pitch_rr_scale = 15
+            # roll_r = math.exp(-((a_r/roll_scale)**4))
+            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
+            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            # reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
+
+
+            # H9 - cannon
+            h = 0.2 * head_a + 0.8 * head_t
             roll_scale = 35
             roll_rr_scale = 25
-            pitch_rr_scale = 15
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            reward = h * (d+v) + 0.8*h*(0.3*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.1*(pitch_rr-0.5)*2)
-
+            reward = h*(0.7*d + 0.3*(0.5*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2))
 
 
             return reward

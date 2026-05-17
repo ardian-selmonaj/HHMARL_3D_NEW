@@ -24,7 +24,8 @@ class ShootReward(BaseRewardFunction):
                 # encourage agent to kill opponent from behind. 
                 if self.orientation_kill:
                     _, a_t, _, _, _, _ = super().get_orientation_metrics(env, agent_id, deg=False)
-                    scale, shift = task.shift_range(-1, 1, 5, 10)
+                    # scale, shift = task.shift_range(-1, 1, 5, 10)
+                    scale, shift = task.shift_range(-1, 1, -1, 10)
                     orientation = np.cos(a_t)*scale + shift
                     reward += float(orientation)
                 else:
