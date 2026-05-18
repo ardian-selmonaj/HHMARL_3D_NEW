@@ -101,20 +101,22 @@ class AircraftEnv(gym.Env):
                 is_B = agent.tid == "B"
                 for sk in state:
                     if sk == "ic_psi_true_deg":
-                        state[sk] = (
-                            (rng.uniform(0, 30) if rng.random() < 0.5 else rng.uniform(330, 360))
-                            if lvl1 else int(rng.integers(0, 350))
-                        )
+                        # state[sk] = (
+                        #     (rng.uniform(0, 30) if rng.random() < 0.5 else rng.uniform(330, 360))
+                        #     if lvl1 else int(rng.integers(0, 350))
+                        # )
+                        state[sk] = int(rng.integers(0, 350))
                     elif sk in ("ic_long_gc_deg", "ic_lat_geod_deg"):
                         if hier1:
                             state[sk] = rng.uniform(-0.15, 0.15)
                         elif lvl1:
-                            if sk == "ic_long_gc_deg":
-                                state[sk] = rng.uniform(-0.02, 0.02)
-                            elif is_B:
-                                state[sk] = rng.uniform(-0.06, -0.01)
-                            else:
-                                state[sk] = rng.uniform(0.01, 0.06)
+                            # if sk == "ic_long_gc_deg":
+                            #     state[sk] = rng.uniform(-0.02, 0.02)
+                            # elif is_B:
+                            #     state[sk] = rng.uniform(-0.06, -0.01)
+                            # else:
+                            #     state[sk] = rng.uniform(0.01, 0.06)
+                            state[sk] = rng.uniform(-0.06, 0.06)
                         else:
                             state[sk] = rng.uniform(-0.13, 0.13)
                     elif sk == "ic_h_sl_ft":

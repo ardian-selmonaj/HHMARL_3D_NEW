@@ -109,40 +109,43 @@ class HeadingReward(BaseRewardFunction):
             # reward = h * (d+v) + 0.7*h*(0.3*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.1*(pitch_rr-0.5)*2)
 
             # H8
-            # h = 0.35 * head_a + 0.65 * head_t
-            # roll_scale = 35
-            # roll_rr_scale = 25
-            # pitch_rr_scale = 15
-            # roll_r = math.exp(-((a_r/roll_scale)**4))
-            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            # reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
-
-
-            # H9 - cannon
-            h = 0.2 * head_a + 0.8 * head_t
+            h = 0.35 * head_a + 0.65 * head_t
             roll_scale = 35
             roll_rr_scale = 25
+            pitch_rr_scale = 15
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            reward = h*(0.7*d + 0.3*(0.5*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2))
+            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
 
-
-            return reward
-        
         else:
-            dist_scale = 7000
-            if dist < 4000:
-                dist_r = 1
-            else:
-                dist_r = math.exp(-(((dist-4000)/dist_scale)**4))
-
-            head_scale = 20
+            head_scale = 30
             head_a = math.exp(-((a_a/head_scale)**2))
+            head_t = math.exp(-((a_t/(head_scale))**2))
 
-            roll_scale = 20
-            roll_r = math.exp(-((a_r/roll_scale)**2))
+            # H9 - cannon
+            h = 0.6 * head_a + 0.4 * head_t
+            roll_rr_scale = 25 ##
+            pitch_rr_scale = 15 ##
+            roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
+            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            reward = h*(0.5*(roll_rr-0.5) + 0.5*(pitch_rr-0.5))
 
-            reward = (dist_r-1) * (0.5*(1-head_a) + 0.5*(1-roll_r))
+        return reward
+        
+        # else:
+        #     dist_scale = 7000
+        #     if dist < 4000:
+        #         dist_r = 1
+        #     else:
+        #         dist_r = math.exp(-(((dist-4000)/dist_scale)**4))
 
-            return reward
+        #     head_scale = 20
+        #     head_a = math.exp(-((a_a/head_scale)**2))
+
+        #     roll_scale = 20
+        #     roll_r = math.exp(-((a_r/roll_scale)**2))
+
+        #     reward = (dist_r-1) * (0.5*(1-head_a) + 0.5*(1-roll_r))
+
+        #     return reward

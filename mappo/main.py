@@ -18,19 +18,19 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "rewH7"
+RUN_NAME = "rewH9"
 
 def process_args(args):
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
+    #args.restore_path = 
 
-    args.env_name = "track"
+    args.env_name = "cannon"
     args.level = 1
 
-    #args.restore_path = 
     args.run_name = f"{RUN_NAME}"
     args.exp_name = f"{args.env_name}_L{args.level}"
-
     args.env_name = f"{args.env_name}/L{args.level}_{args.env_name}"
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.env_name == "track")}
+
     args.num_envs = 20
     args.batch_size = 10000
     args.train_epochs = 10
@@ -45,7 +45,7 @@ def process_args(args):
     args.spo = False
     args.use_ReLU = True
     args.td_lambda = 0.92
-    args.entropy_decay = [[0, 0.1], [3e6, 0]]
+    args.entropy_decay = [[0, 0.1], [2e6, 0]]
     args.total_timesteps = 20000000
 
     # cannon: L1: -20M, L1.5: -40M, L2: -80M, L3: 120M || track: L1: -20M, L2: -60M
@@ -56,7 +56,7 @@ def process_args(args):
 
     args.avail_actions = False
     args.torch_compile = False
-    args.cuda_id = 0
+    args.cuda_id = 1
 
     batch_alignment = math.lcm(args.num_envs, args.minibatch_size)
     args.batch_size = int(math.ceil(args.batch_size / batch_alignment) * batch_alignment)
