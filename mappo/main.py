@@ -18,7 +18,7 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "rewH9"
+RUN_NAME = "rewH10_roll"
 
 def process_args(args):
     #args.restore_path = 
@@ -46,7 +46,7 @@ def process_args(args):
     args.use_ReLU = True
     args.td_lambda = 0.92
     args.entropy_decay = [[0, 0.1], [2e6, 0]]
-    args.total_timesteps = 20000000
+    args.total_timesteps = 60000000
 
     # cannon: L1: -20M, L1.5: -40M, L2: -80M, L3: 120M || track: L1: -20M, L2: -60M
     # L1 entropy decay [[0, 0.1], [3e6, 0]]

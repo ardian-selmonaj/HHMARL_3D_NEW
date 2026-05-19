@@ -124,12 +124,23 @@ class HeadingReward(BaseRewardFunction):
             head_t = math.exp(-((a_t/(head_scale))**2))
 
             # H9 - cannon
+            # h = 0.6 * head_a + 0.4 * head_t
+            # roll_rr_scale = 25 ##
+            # pitch_rr_scale = 15 ##
+            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
+            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            # reward = h*(0.5*(roll_rr-0.5) + 0.5*(pitch_rr-0.5))
+
+            # H10 - cannon
             h = 0.6 * head_a + 0.4 * head_t
-            roll_rr_scale = 25 ##
-            pitch_rr_scale = 15 ##
-            roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            reward = h*(0.5*(roll_rr-0.5) + 0.5*(pitch_rr-0.5))
+            roll_scale = 60
+            roll_rr_scale = 25
+            pitch_rr_scale = 20
+            roll_r = math.exp(-((a_r/roll_scale)**2)) -1.0
+            roll_rr = math.exp(-((a_rr/roll_rr_scale)**4)) - 0.5
+            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**4)) - 0.5
+            # reward = h*(roll_rr + pitch_rr)
+            reward = h*(roll_rr + pitch_rr + 0.5*roll_r)
 
         return reward
         

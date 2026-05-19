@@ -28,13 +28,15 @@ def load_checkpoint(restore_path, device):
 def run_inference(num_episodes=10):
     # Reuse the exact training config so the network architecture matches the checkpoint.
     args, _, device = process_args(tyro.cli(Args))
+    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/cannon/cannon_L1_rewH9"
 
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": 2}
-    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/abs_act_roll/track_L1_rew2_last_act"
-    # args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/aircombat_track_L2/L2_track_II_Tanh_TD095"
+    args.level = 1
+    args.env_name = "cannon"
+
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.env_name == "track")}
     args.env_type = "aircombat"
-    args.env_name = "track/L1_track"
-    # args.env_name = "cannon/L2_cannon"
+    args.env_name = f"{args.env_name}/L{args.level}_{args.env_name}"
+
     args.actor_hidden_dim = 128
     args.critic_hidden_dim = 128
     args.rnn = False
