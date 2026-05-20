@@ -78,10 +78,10 @@ class Args:
     """ Lower bound for the full rollout batch, rounded up for clean minibatch/env splits"""
     train_epochs: int = 10
     """ Number of training epochs"""
-    spo: bool = False
-    """ If True, use SPO objective (r·Â - |Â|/(2ε)·(r-1)²) instead of PPO clip """
-    ppo_clip: float = 0.2
-    """ PPO clipping factor ε (also used as ε in SPO) """
+    algorithm: str = "ppo"
+    """ Policy optimization algorithm: "ppo" (clipped surrogate), "spo" (soft quadratic penalty), or "mars" (multiplicatively symmetric geometric barrier) """
+    trust_region_clip: float = 0.2
+    """ Trust region parameter ε. For PPO: clipping factor. For SPO: penalty scale. For MARS: B_upper = 1+ε, B_lower = 1/B_upper. """
     clip_value_loss: float = 1.0
     """ If >0, clip value targets at ±this amount from old values; ≤0 disables clipping """
     value_loss_coef: float = 1.0

@@ -804,14 +804,27 @@ class Learner:
     def _policy_loss(self, ratio, advantages, log_ratio):
         """Compute per-sample policy loss (before masking/averaging).
 
-        SPO: r·Â - (|Â|/2ε)·(r-1)²  → negate for gradient descent.
-        PPO: max(-r·Â, -clip(r,1-ε,1+ε)·Â).
+        PPO:  max(-r·Â, -clip(r,1-ε,1+ε)·Â).
+        SPO:  r·Â - (|Â|/2ε)·(r-1)²  → negate for gradient descent.
+        MARS: r·Â - αₜ·(r + 1/r - 2)  → negate for gradient descent.
+              Multiplicatively symmetric: B_upper = 1+ε, B_lower = 1/B_upper.
+              αₜ = Â / (1 - r_target⁻²), where r_target = B_upper if Â≥0 else B_lower.
         """
-        if self.args.spo:
-            return -(ratio * advantages - (advantages.abs() / (2 * self.args.ppo_clip)) * (ratio - 1) ** 2)
+        algo = self.args.algorithm
+        eps = self.args.trust_region_clip
+        if algo == "spo":
+            return -(ratio * advantages - (advantages.abs() / (2 * eps)) * (ratio - 1) ** 2)
+        if algo == "mars":
+            b_upper = 1.0 + eps
+            b_lower = 1.0 / b_upper
+            r_target = torch.where(advantages >= 0, torch.full_like(advantages, b_upper), torch.full_like(advantages, b_lower))
+            alpha_t = advantages / (1.0 - r_target.pow(-2))
+            ratio_safe = ratio.clamp_min(1e-8)
+            penalty = ratio_safe + 1.0 / ratio_safe - 2.0
+            return -(ratio * advantages - alpha_t * penalty)
         return torch.max(
             -advantages * ratio,
-            -advantages * ratio.clamp(1 - self.args.ppo_clip, 1 + self.args.ppo_clip),
+            -advantages * ratio.clamp(1 - eps, 1 + eps),
         )
 
     def _compute_actor_stats(
@@ -869,7 +882,7 @@ class Learner:
                 actor_pg = pg_loss.mean()
                 entropy_loss = entropy_flat.mean()
             kl_divergence = ((ratio - 1) - log_ratio).mean()
-            clipped_ratio = ((ratio - 1.0).abs() > args.ppo_clip).float().mean()
+            clipped_ratio = ((ratio - 1.0).abs() > args.trust_region_clip).float().mean()
             actor_loss = actor_pg - entropy_coef * entropy_loss
             return actor_loss, entropy_loss, kl_divergence, clipped_ratio
 
@@ -910,7 +923,7 @@ class Learner:
                 actor_loss = actor_loss + pg_loss.mean()
                 entropy_loss = entropy_loss + entropy.mean()
             kl_divergence = kl_divergence + ((ratio - 1) - log_ratio).mean()
-            clipped_ratio = clipped_ratio + ((ratio - 1.0).abs() > args.ppo_clip).float().mean()
+            clipped_ratio = clipped_ratio + ((ratio - 1.0).abs() > args.trust_region_clip).float().mean()
         n = len(self.actors)
         actor_loss = actor_loss / n - entropy_coef * (entropy_loss / n)
         return actor_loss, entropy_loss / n, kl_divergence / n, clipped_ratio / n
@@ -1230,7 +1243,7 @@ class Learner:
                     entropy_loss = entropy.mean()
                 actor_loss     = actor_pg - entropy_coef * entropy_loss
                 kl_divergence  = ((ratio - 1) - log_ratio).mean()
-                clipped_ratio  = ((ratio - 1.0).abs() > args.ppo_clip).float().mean()
+                clipped_ratio  = ((ratio - 1.0).abs() > args.trust_region_clip).float().mean()
 
                 # ---- critic ----
                 mb_states_flat = mb["states"].reshape(L_ * N, -1)    # (L*N, state_D)

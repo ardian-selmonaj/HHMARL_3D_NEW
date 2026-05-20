@@ -18,13 +18,13 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "rewH10_roll60_scale002"
+RUN_NAME = "MARS_rewH11_scale003_trust03"
 
 def process_args(args):
-    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/rewH10/cannon_L1_rewH10_roll"
+    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/L1/rewH10/cannon_L1_rewH10_roll60_scale005_Best"
 
     args.env_name = "cannon"
-    args.level = 2
+    args.level = 1
 
     args.run_name = f"{RUN_NAME}"
     args.exp_name = f"{args.env_name}_L{args.level}"
@@ -34,7 +34,7 @@ def process_args(args):
     args.num_envs = 20
     args.batch_size = 10000
     args.train_epochs = 10
-    args.ppo_clip = 0.25
+    args.trust_region_clip = 0.3
     args.minibatch_size = 5000
     args.learning_rate_actor = 3e-4
     args.learning_rate_critic = 3e-4
@@ -42,11 +42,11 @@ def process_args(args):
     args.critic_hidden_dim = 128
     args.rnn = False
 
-    args.spo = False
+    args.algorithm = "mars"
     args.use_ReLU = True
     args.td_lambda = 0.92
-    args.entropy_decay = [[60e6, 0.05], [60.1e6, 0]] #[[0, 0.1], [2e6, 0]]
-    args.total_timesteps = 60000000 * 2
+    args.entropy_decay = [[0, 0.1], [2e6, 0]] #[[60e6, 0.1], [60.2e6, 0]] #[[0, 0.1], [2e6, 0]]
+    args.total_timesteps = 40000000 #60000000 * 2
 
     # cannon: L1: -20M, L1.5: -40M, L2: -80M, L3: 120M || track: L1: -20M, L2: -60M
     # L1 entropy decay [[0, 0.1], [3e6, 0]]
@@ -56,7 +56,7 @@ def process_args(args):
 
     args.avail_actions = False
     args.torch_compile = False
-    args.cuda_id = 1
+    args.cuda_id = 0
 
     batch_alignment = math.lcm(args.num_envs, args.minibatch_size)
     args.batch_size = int(math.ceil(args.batch_size / batch_alignment) * batch_alignment)
