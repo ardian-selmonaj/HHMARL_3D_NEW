@@ -18,13 +18,13 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "rewH10_roll"
+RUN_NAME = "rewH10_roll60_scale002"
 
 def process_args(args):
-    #args.restore_path = 
+    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/rewH10/cannon_L1_rewH10_roll"
 
     args.env_name = "cannon"
-    args.level = 1
+    args.level = 2
 
     args.run_name = f"{RUN_NAME}"
     args.exp_name = f"{args.env_name}_L{args.level}"
@@ -45,8 +45,8 @@ def process_args(args):
     args.spo = False
     args.use_ReLU = True
     args.td_lambda = 0.92
-    args.entropy_decay = [[0, 0.1], [2e6, 0]]
-    args.total_timesteps = 60000000
+    args.entropy_decay = [[60e6, 0.05], [60.1e6, 0]] #[[0, 0.1], [2e6, 0]]
+    args.total_timesteps = 60000000 * 2
 
     # cannon: L1: -20M, L1.5: -40M, L2: -80M, L3: 120M || track: L1: -20M, L2: -60M
     # L1 entropy decay [[0, 0.1], [3e6, 0]]
