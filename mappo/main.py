@@ -18,23 +18,25 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "MARS_rewH11_scale003_trust03"
+# RUN_NAME = "PPO_rewH11_shot_range_2-10"
+# TASK = "cannon"
+
+RUN_NAME = "mars_dscale2_hscale005_RNN"
+TASK = "escape"
 
 def process_args(args):
-    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/L1/rewH10/cannon_L1_rewH10_roll60_scale005_Best"
+    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/L1/rewH11/cannon_L1_MARS_rewH11_scale003_trust02_BEST"
 
-    args.env_name = "cannon"
     args.level = 1
-
     args.run_name = f"{RUN_NAME}"
-    args.exp_name = f"{args.env_name}_L{args.level}"
-    args.env_name = f"{args.env_name}/L{args.level}_{args.env_name}"
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.env_name == "track")}
+    args.exp_name = f"{TASK}_L{args.level}"
+    args.env_name = f"{TASK}/L{args.level}_{TASK}"
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
 
     args.num_envs = 20
     args.batch_size = 10000
     args.train_epochs = 10
-    args.trust_region_clip = 0.3
+    args.trust_region_clip = 0.25
     args.minibatch_size = 5000
     args.learning_rate_actor = 3e-4
     args.learning_rate_critic = 3e-4
@@ -45,8 +47,11 @@ def process_args(args):
     args.algorithm = "mars"
     args.use_ReLU = True
     args.td_lambda = 0.92
-    args.entropy_decay = [[0, 0.1], [2e6, 0]] #[[60e6, 0.1], [60.2e6, 0]] #[[0, 0.1], [2e6, 0]]
-    args.total_timesteps = 40000000 #60000000 * 2
+    args.entropy_decay = [[0, 0.1], [2e6, 0]]
+    args.total_timesteps = 40000000
+
+    # args.entropy_decay = [[40e6, 0.1], [40.2e6, 0]] #[[60e6, 0.1], [60.2e6, 0]] #[[0, 0.1], [2e6, 0]]
+    # args.total_timesteps = 40000000 * 2
 
     # cannon: L1: -20M, L1.5: -40M, L2: -80M, L3: 120M || track: L1: -20M, L2: -60M
     # L1 entropy decay [[0, 0.1], [3e6, 0]]

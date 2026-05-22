@@ -1,5 +1,5 @@
 from missions import TrackTask
-from rewards import ShootPenaltyReward, EventDrivenReward, DistanceReward
+from rewards import ShootPenaltyReward, EventDrivenReward, DistanceReward, HeadingReward
 
 """
 Defend Task to escape from opponent.
@@ -13,5 +13,6 @@ class EscapeTask(TrackTask):
         self.rewards = [
             ShootPenaltyReward(self.config),
             EventDrivenReward(self.config),
-            DistanceReward(self.config)
+            DistanceReward(self.config),
+            HeadingReward(self.config)
         ]

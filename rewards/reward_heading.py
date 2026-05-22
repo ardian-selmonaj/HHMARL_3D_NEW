@@ -11,6 +11,7 @@ class HeadingReward(BaseRewardFunction):
         super().__init__(config)
         self.reward_item_names = [self.__class__.__name__ + item for item in ['', '_heading', '_alt', '_roll', '_speed']]
         self.with_opp = getattr(self.config, f'{self.__class__.__name__}_with_opp', True)
+        self.roll_only = getattr(self.config, f'{self.__class__.__name__}_roll_only', False)
 
     def get_reward(self, task, env, agent_id, action=None):
         """
@@ -118,6 +119,18 @@ class HeadingReward(BaseRewardFunction):
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
             reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
 
+        elif self.roll_only:
+            head_scale = 50
+            head_a = 1-math.exp(-((a_a/head_scale)**2))
+
+            roll_scale = 60
+            roll_rr_scale = 25
+            pitch_rr_scale = 20
+            roll_r = math.exp(-((a_r/roll_scale)**2)) -1.0
+            roll_rr = math.exp(-((a_rr/roll_rr_scale)**4)) - 0.5
+            pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**4)) - 0.5
+            reward = head_a*(roll_rr + pitch_rr + 0.5*roll_r)
+
         else:
             head_scale = 30
             head_a = math.exp(-((a_a/head_scale)**2))
@@ -149,7 +162,7 @@ class HeadingReward(BaseRewardFunction):
             roll_r = math.exp(-((a_r/roll_scale)**2)) -1.0
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**4)) - 0.5
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**4)) - 0.5
-            reward = h*(roll_rr + pitch_rr + 0.3*roll_r)
+            reward = h*(roll_rr + pitch_rr + 0.5*roll_r)
 
         return reward
         

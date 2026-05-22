@@ -2,13 +2,13 @@
 space_format: ray
 
 # simulation config
-sim_freq: 100
+sim_freq: 75
 sim_steps: 10 # step 0.1s
 map_size: 50 #km
-rnd_init: true
+rnd_init: true # random initial state
 
 # termination config
-horizon: 1000 # episode length: 100s
+horizon: 600 # episode length: 100s
 altitude_limit: 2500 #m
 altitude_limit_max: 10000 ## m
 acceleration_limit_x: 9.0
@@ -21,7 +21,7 @@ aircraft: {
   B1: {
     model: f16,
     mission: task_escape,
-    num_missiles: 8, #used for cannon shots
+    num_missiles: 10, #used for cannon shots
     init_state: {
       ic_long_gc_deg: 0.0,
       ic_lat_geod_deg: -0.1,
@@ -48,10 +48,16 @@ battle_field_center: [0.0, 0.0, 0.0]
 
 # reward config
 
+ShootPenaltyReward_scale: 1
 ShootPenaltyReward_posture_punish: false
 
 DistanceReward_potential: true
-DistanceReward_scale: 50
+DistanceReward_scale: 1
+
+HeadingReward_with_opp: false
+HeadingReward_roll_only: true
+HeadingReward_scale: 0.05
+
 
 ## -- TERMINATIONS -- ##:
 # ExtremeState (incl out-of-boundary), Overload (accel.), 
@@ -59,4 +65,4 @@ DistanceReward_scale: 50
 # DeadAgent (all opps destroyed)
 
 ## -- REWARDS -- ##
-#ShootPenaltyReward, EventReward, DistanceReward
+#ShootPenaltyReward, EventReward, DistanceReward, HeadingReward
