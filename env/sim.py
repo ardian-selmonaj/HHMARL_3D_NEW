@@ -67,6 +67,10 @@ class BaseSim(ABC):
         """(v_north, v_east, v_up), unit: m/s"""
         return self._velocity
     
+    def get_norm_velocity_2d(self):
+        """norm (v_north, v_east), unit: m/s"""
+        return np.linalg.norm(self._velocity[:2])
+    
     def get_distance_to_origin_3d(self):
         """distance in m to origin (lat0, lon0, alt0)"""
         return np.linalg.norm(self.get_position())
@@ -74,10 +78,19 @@ class BaseSim(ABC):
     def get_distance_to_origin_2d(self):
         """distance in m to origin (lat0, lon0)"""
         return np.linalg.norm(self.get_position()[:2])
+    
+    def get_distance_to_origin_lat(self):
+        """distance in m to origin lat0"""
+        return np.linalg.norm(self.get_position()[0])
+    
+    def get_distance_to_origin_lon(self):
+        """distance in m to origin lon0"""
+        return np.linalg.norm(self.get_position()[1])
 
     def get_altitude(self):
         """height in m above sea level."""
-        return np.linalg.norm(self.get_position()[-1])
+        # return np.linalg.norm(self.get_position()[-1])
+        return self.get_property_value(Catalog.position_h_sl_m)
     
     def get_distance_to_target(self, target):
         return np.linalg.norm(target.get_position() - self.get_position())

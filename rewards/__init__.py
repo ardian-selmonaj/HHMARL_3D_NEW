@@ -4,3 +4,4 @@ from rewards.reward_shoot_penalty import ShootPenaltyReward
 from rewards.reward_shoot import ShootReward
 from rewards.reward_distance import DistanceReward
 from rewards.reward_rollpitch import RollPitch
+from rewards.reward_flee import FleeReward

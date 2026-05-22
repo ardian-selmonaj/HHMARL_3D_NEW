@@ -58,6 +58,8 @@ HeadingReward_with_opp: false
 HeadingReward_roll_only: true
 HeadingReward_scale: 0.05
 
+FleeReward_potential: false
+FleeReward_scale: 0.1
 
 ## -- TERMINATIONS -- ##:
 # ExtremeState (incl out-of-boundary), Overload (accel.), 
@@ -65,4 +67,4 @@ HeadingReward_scale: 0.05
 # DeadAgent (all opps destroyed)
 
 ## -- REWARDS -- ##
-#ShootPenaltyReward, EventReward, DistanceReward, HeadingReward
+#ShootPenaltyReward, EventReward, DistanceReward, HeadingReward, FleeReward
