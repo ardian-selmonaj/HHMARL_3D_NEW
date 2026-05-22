@@ -24,18 +24,19 @@ def load_checkpoint(restore_path, device):
     print(f"Loaded checkpoint: {path}  (trained to step {ckpt['step']})")
     return ckpt
 
+TASK = "escape"
+LEVEL = 1
+PATH = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/escape/escape_L1_mars_dscale2_hscale005_RNN"
 
 def run_inference(num_episodes=10):
     # Reuse the exact training config so the network architecture matches the checkpoint.
     args, _, device = process_args(tyro.cli(Args))
-    args.restore_path = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/cannon/cannon_L1_rewH9"
 
-    args.level = 1
-    args.env_name = "cannon"
-
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.env_name == "track")}
+    args.restore_path = PATH
+    args.level = LEVEL
+    args.env_name = f"{TASK}/L{LEVEL}_{TASK}"
     args.env_type = "aircombat"
-    args.env_name = f"{args.env_name}/L{args.level}_{args.env_name}"
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
 
     args.actor_hidden_dim = 128
     args.critic_hidden_dim = 128
@@ -67,6 +68,7 @@ def run_inference(num_episodes=10):
         masks = torch.ones(1, device=device) if args.rnn else None
 
         ep_reward, ep_len, done = 0.0, 0, False
+        killed_agent = "--"
         while not done:
             obs_t = torch.as_tensor(obs, device=device).unsqueeze(0)  # (1, A, D)
             with torch.no_grad():
@@ -76,7 +78,7 @@ def run_inference(num_episodes=10):
             actions_np = actions[0].cpu().numpy()  # (A, K)
             actions_dict = {k: actions_np[i] for i, k in enumerate(agent_keys)}
 
-            obs_dict, reward_dict, done_dict, trunc, _ = env.step(actions_dict)
+            obs_dict, reward_dict, done_dict, trunc, info = env.step(actions_dict)
             obs = np.array([obs_dict[k] for k in agent_keys], dtype=np.float32)
             ep_reward += float(np.mean([reward_dict[k] for k in agent_keys]))
             ep_len += 1
@@ -85,9 +87,14 @@ def run_inference(num_episodes=10):
             if RENDER:
                 env.env.render()
 
+            if info["opp_killed"]:
+                killed_agent = "opp"
+            if info["agent_killed"]:
+                killed_agent = "agent"
+
         ep_rewards.append(ep_reward)
         ep_lengths.append(ep_len)
-        print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d}")
+        print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d} | killed: {killed_agent}")
 
     print(f"\nMean reward: {np.mean(ep_rewards):.3f} ± {np.std(ep_rewards):.3f}  "
           f"| Mean length: {np.mean(ep_lengths):.1f}")
