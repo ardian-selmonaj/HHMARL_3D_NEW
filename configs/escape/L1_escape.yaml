@@ -52,14 +52,16 @@ ShootPenaltyReward_scale: 1
 ShootPenaltyReward_posture_punish: false
 
 DistanceReward_potential: true
-DistanceReward_scale: 1
+DistanceReward_scale: 5
 
 HeadingReward_with_opp: false
 HeadingReward_roll_only: true
-HeadingReward_scale: 0.05
+HeadingReward_scale: 0.03
 
 FleeReward_potential: false
-FleeReward_scale: 0.1
+FleeReward_scale: 0.5
+
+EventDrivenReward_scale: 5
 
 ## -- TERMINATIONS -- ##:
 # ExtremeState (incl out-of-boundary), Overload (accel.), 

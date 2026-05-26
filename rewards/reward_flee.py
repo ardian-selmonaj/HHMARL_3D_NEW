@@ -17,23 +17,23 @@ class FleeReward(BaseRewardFunction):
 
     def dist_reward(self, env, agent_id):
 
-        def delta_loc(x):
-            # in [KM]
-            dist_scale = 7
-            dist_offset = 5
-            if x < dist_offset:
-                dist_r = 0
-            else:
-                dist_r = 1-math.exp(-(((x-dist_offset)/dist_scale)**2))
-            return dist_r
+        # def delta_loc(x):
+        #     # in [KM]
+        #     dist_scale = 7
+        #     dist_offset = 5
+        #     if x < dist_offset:
+        #         dist_r = 0
+        #     else:
+        #         dist_r = 1-math.exp(-(((x-dist_offset)/dist_scale)**2))
+        #     return dist_r
         
-        delta_x, delta_y, _, _, _, _ = super().get_delta_values(env, agent_id, in_km=True)
-        d = 0.5*delta_loc(delta_x) + 0.5*delta_loc(delta_y)
+        # delta_x, delta_y, _, _, _, _ = super().get_delta_values(env, agent_id, in_km=True)
+        # d = 0.5*delta_loc(delta_x) + 0.5*delta_loc(delta_y)
 
         def boundary_pen(d):
             # d in [KM]. Only contributes when margin to edge < bnd_offset.
             margin = self.half_map - d
-            bnd_offset = 5
+            bnd_offset = 10 #5
             bnd_scale = 3
             if margin > bnd_offset:
                 return 0
@@ -47,7 +47,7 @@ class FleeReward(BaseRewardFunction):
             # alt in [KM]. Only contributes when within alt_offset of low/high limits.
             alt_low = getattr(self.config, 'altitude_limit', 2500) / 1000
             alt_high = getattr(self.config, 'altitude_limit_max', 10000) / 1000
-            alt_offset = 1.5
+            alt_offset = 2
             alt_scale = 1.5
             low_margin = alt - alt_low
             high_margin = alt_high - alt
@@ -69,9 +69,14 @@ class FleeReward(BaseRewardFunction):
         velocity = env.agents[agent_id].get_norm_velocity_2d() * 3.6 # in km/h
         v = speed_rew(velocity)
 
-        _, a_t, _, _, _, _ = super().get_orientation_metrics(env, agent_id, deg=True)
-        head_scale = 50
-        head_t = math.exp(-((a_t/head_scale)**2))
+        # _, a_t, _, _, _, _ = super().get_orientation_metrics(env, agent_id, deg=True)
+        # head_scale = 50
+        # head_t = math.exp(-((a_t/head_scale)**2))
 
-        reward = d + b + 0.25*a + 0.25*v + 0.5*head_t
+        # reward = d + b + 0.25*a + 0.25*v + 0.5*head_t
+
+        # reward = 0.33*a + 0.33*v + 0.33*head_t
+        # reward = 0.33*a + 0.33*v + 0.33*head_t + b
+        # reward = 0.33 * (a + v + b)
+        reward = 0.3*a + 0.7*b
         return reward

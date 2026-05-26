@@ -18,16 +18,19 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-# RUN_NAME = "PPO_rewH11_shot_range_2-10"
+# RUN_NAME = "PPO_rewH11_scale005_shot_range_5-10"
 # TASK = "cannon"
 
-RUN_NAME = "mars_dscale2_hscale005_RNN"
+# RUN_NAME = "pot_dist_d_scale1_fleescale01_b"
+RUN_NAME = "distscale5_fleescale05_a+b_eventscale5_headscale007"
 TASK = "escape"
+
+LEVEL = 1
 
 def process_args(args):
     # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/L1/rewH11/cannon_L1_MARS_rewH11_scale003_trust02_BEST"
 
-    args.level = 1
+    args.level = LEVEL
     args.run_name = f"{RUN_NAME}"
     args.exp_name = f"{TASK}_L{args.level}"
     args.env_name = f"{TASK}/L{args.level}_{TASK}"

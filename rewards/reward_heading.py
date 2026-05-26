@@ -122,6 +122,7 @@ class HeadingReward(BaseRewardFunction):
         elif self.roll_only:
             head_scale = 50
             head_a = 1-math.exp(-((a_a/head_scale)**2))
+            head_t = math.exp(-((a_t/head_scale)**2))
 
             roll_scale = 60
             roll_rr_scale = 25
@@ -129,7 +130,7 @@ class HeadingReward(BaseRewardFunction):
             roll_r = math.exp(-((a_r/roll_scale)**2)) -1.0
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**4)) - 0.5
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**4)) - 0.5
-            reward = head_a*(roll_rr + pitch_rr + 0.5*roll_r)
+            reward = (0.5*head_a+0.5*head_t)*(roll_rr + pitch_rr + 0.5*roll_r)
 
         else:
             head_scale = 30
