@@ -120,7 +120,7 @@ class HeadingReward(BaseRewardFunction):
             reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
 
         elif self.roll_only:
-            head_scale = 50
+            head_scale = 40
             head_a = 1-math.exp(-((a_a/head_scale)**2))
             head_t = math.exp(-((a_t/head_scale)**2))
 

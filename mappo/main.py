@@ -18,13 +18,8 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-# RUN_NAME = "PPO_rewH11_scale005_shot_range_5-10"
-# TASK = "cannon"
-
-# RUN_NAME = "pot_dist_d_scale1_fleescale01_b"
-RUN_NAME = "distscale5_fleescale05_a+b_eventscale5_headscale007"
+RUN_NAME = "distscale3_fleescale01_v1500_eventscale10" #v1500 is scale for velocity rew.
 TASK = "escape"
-
 LEVEL = 1
 
 def process_args(args):

@@ -16,20 +16,6 @@ class FleeReward(BaseRewardFunction):
 
 
     def dist_reward(self, env, agent_id):
-
-        # def delta_loc(x):
-        #     # in [KM]
-        #     dist_scale = 7
-        #     dist_offset = 5
-        #     if x < dist_offset:
-        #         dist_r = 0
-        #     else:
-        #         dist_r = 1-math.exp(-(((x-dist_offset)/dist_scale)**2))
-        #     return dist_r
-        
-        # delta_x, delta_y, _, _, _, _ = super().get_delta_values(env, agent_id, in_km=True)
-        # d = 0.5*delta_loc(delta_x) + 0.5*delta_loc(delta_y)
-
         def boundary_pen(d):
             # d in [KM]. Only contributes when margin to edge < bnd_offset.
             margin = self.half_map - d
@@ -60,8 +46,8 @@ class FleeReward(BaseRewardFunction):
 
         def speed_rew(v):
             # v in [km/h]. Saturates as speed grows.
-            v_scale = 1000
-            v_offset = 500
+            v_scale = 1200
+            v_offset = 800
             if v < v_offset:
                 return 0
             return 1 - math.exp(-(((v - v_offset)/v_scale)**2))
@@ -69,14 +55,6 @@ class FleeReward(BaseRewardFunction):
         velocity = env.agents[agent_id].get_norm_velocity_2d() * 3.6 # in km/h
         v = speed_rew(velocity)
 
-        # _, a_t, _, _, _, _ = super().get_orientation_metrics(env, agent_id, deg=True)
-        # head_scale = 50
-        # head_t = math.exp(-((a_t/head_scale)**2))
-
-        # reward = d + b + 0.25*a + 0.25*v + 0.5*head_t
-
-        # reward = 0.33*a + 0.33*v + 0.33*head_t
-        # reward = 0.33*a + 0.33*v + 0.33*head_t + b
-        # reward = 0.33 * (a + v + b)
-        reward = 0.3*a + 0.7*b
+        reward = 0.2*a + 0.5*b + 0.3*v
+        # reward = v
         return reward

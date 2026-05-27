@@ -15,7 +15,7 @@ class DistanceReward(BaseRewardFunction):
     def get_reward(self, task, env, agent_id, action=None):
         #reward = self.dist_reward(env, agent_id)
         delta_x, delta_y, _, _, _, _ = super().get_delta_values(env, agent_id, in_km=True)
-        scale, shift = task.shift_range(0, 50, 0, 1)
+        scale, shift = task.shift_range(0, 50, -5, 10)
         x = delta_x * scale + shift
         y = delta_y * scale + shift
         reward = 0.5*x + 0.5*y

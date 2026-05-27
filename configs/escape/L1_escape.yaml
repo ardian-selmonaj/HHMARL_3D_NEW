@@ -61,7 +61,7 @@ HeadingReward_scale: 0.03
 FleeReward_potential: false
 FleeReward_scale: 0.5
 
-EventDrivenReward_scale: 5
+EventDrivenReward_scale: 10
 
 ## -- TERMINATIONS -- ##:
 # ExtremeState (incl out-of-boundary), Overload (accel.), 
