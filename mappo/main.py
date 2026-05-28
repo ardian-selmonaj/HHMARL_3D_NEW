@@ -18,7 +18,7 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "distscale3_fleescale01_v1500_eventscale10" #v1500 is scale for velocity rew.
+RUN_NAME = "distscale7_fleescale075_H1scale0075"
 TASK = "escape"
 LEVEL = 1
 

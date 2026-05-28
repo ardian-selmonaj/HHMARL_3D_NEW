@@ -59,7 +59,7 @@ HeadingReward_roll_only: true
 HeadingReward_scale: 0.03
 
 FleeReward_potential: false
-FleeReward_scale: 0.5
+FleeReward_scale: 0.7
 
 EventDrivenReward_scale: 10
 

@@ -55,6 +55,5 @@ class FleeReward(BaseRewardFunction):
         velocity = env.agents[agent_id].get_norm_velocity_2d() * 3.6 # in km/h
         v = speed_rew(velocity)
 
-        reward = 0.2*a + 0.5*b + 0.3*v
-        # reward = v
+        reward = 0.2*a + 0.4*b + 0.4*v
         return reward
