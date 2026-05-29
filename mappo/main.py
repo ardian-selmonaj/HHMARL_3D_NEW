@@ -18,7 +18,7 @@ from utils import validate_decay_schedule, get_decayed_value, Logger, Workers
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "distscale7_fleescale075_H1scale0075"
+RUN_NAME = "distscale8_fleescale08_headscale002_event10"
 TASK = "escape"
 LEVEL = 1
 
