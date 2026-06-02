@@ -1,0 +1,22 @@
+# Escape L1: L3 maneuver opponent.
+
+aircraft:
+  B1:
+    mission: task_escape
+  R2:
+    mission: model_L3Maneuver
+
+ShootPenaltyReward_scale: 1
+ShootPenaltyReward_posture_punish: false
+
+DistanceReward_potential: true
+DistanceReward_scale: 5
+
+HeadingReward_track: false
+HeadingReward_opposite: true
+HeadingReward_scale: 0.02
+
+FleeReward_potential: false
+FleeReward_scale: 0.5
+
+EventDrivenReward_scale: 10

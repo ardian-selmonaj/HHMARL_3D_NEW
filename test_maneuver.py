@@ -4,7 +4,7 @@ import warnings
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mappo.envs import get_environment
+from env.env import AircombatMARL
 
 
 warnings.filterwarnings("ignore", category=UserWarning, module="torch._utils")
@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torch._utils")
 
 def main():
     kwargs = {"hierarchy_level": 0, "training_level": 2}
-    env = get_environment("aircombat", "track/L1_track", False, kwargs)
+    env = AircombatMARL(env_name="track/L1", agent_ids=False, **kwargs)
     act = {"B1": [10, 5, 5, 5, 1]}
 
     env.reset()
