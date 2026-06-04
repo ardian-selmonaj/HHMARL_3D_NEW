@@ -204,7 +204,7 @@ class HeadingReward(BaseRewardFunction):
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
             # reward = h*(d + v + 0.6*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
 
-            # H880
+            # final
             reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2)
 
         elif self.opposite:
@@ -266,8 +266,8 @@ class FleeReward(BaseRewardFunction):
     def get_reward(self, task, env, agent_id, action=None):
         def boundary_pen(d):
             margin = self.half_map - d
-            bnd_offset = 10
-            bnd_scale = 3
+            bnd_offset = 15 #10
+            bnd_scale = 5 #3
             if margin > bnd_offset:
                 return 0
             return -(1 - math.exp(-(((bnd_offset - margin)/bnd_scale)**2)))
@@ -298,7 +298,8 @@ class FleeReward(BaseRewardFunction):
 
         v = speed_rew(env.agents[agent_id].get_norm_velocity_2d() * 3.6)
 
-        reward = 0.2*a + 0.4*b + 0.4*v
+        # reward = 0.2*a + 0.4*b + 0.4*v
+        reward = a + b + v
         return self._process(reward, agent_id)
 
 

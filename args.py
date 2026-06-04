@@ -1,6 +1,10 @@
-import os
-import sys
 from dataclasses import dataclass, field
+from datetime import datetime
+
+
+def default_run_name():
+    now = datetime.now()
+    return f"{now.year % 100}-{now.month}-{now.day}_{now.hour:02d}-{now.minute:02d}"
 
 
 def schedule_field(default=None):
@@ -15,24 +19,16 @@ def schedule_field(default=None):
 class Args:
     env_type: str = "aircombat"
     """ Env. """
-    env_name: str = "track"
+    task: str = "track"
     """ Task of the environment"""
+    run_name: str = field(default_factory=default_run_name)
+    """ Run name used by training logs and progress output """
     level: int = 1
     """ level of task. """
     hierarchy_level: int = 0
     """ Hierarchical Level """
-    exp_name: str = os.path.basename(sys.argv[0])[: -len(".py")].split("_")[0]
-    """the name of this experiment"""
-    extra_token: str = ""
-    """ Optional suffix appended to the run name """
-    time_token: str = field(init=False, default="")
-    """ Timestamp string set by process_args """
-    run_name: str = field(init=False, default="")
-    """ Full run name set by process_args """
     agent_ids: bool = False
     """ Include id (one-hot vector) at the agent of the observations"""
-    shared_rewards: bool = True
-    """ If True, all agents share the same team reward; if False, per-agent individual rewards where the env supports it (e.g. GRF) """
     policy_mask: bool = True
     """ If True, mask dead agents out of the actor loss (active masks on policy) """
     value_mask: bool = True

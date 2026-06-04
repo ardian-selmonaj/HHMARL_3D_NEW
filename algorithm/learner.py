@@ -793,20 +793,18 @@ class Learner:
                 rnn_states_critic=batch.rnn_states_critic,
             )
 
-        # FlatBatch (non-RNN): when rewards are shared, centralized values/returns are
-        # identical across agents and can use agent 0. With individual rewards, keep
-        # the agent axis so each policy update sees its own return/advantage.
+        # FlatBatch (non-RNN): keep the agent axis so each policy update uses its
+        # own return/advantage, even when the critic observes centralized state.
         tm = batch.batch_time_mask
-        use_shared_central_value = args.centralized_critic and args.shared_rewards
         return FlatBatch(
             obs=batch.batch_obs[tm],
             actions=batch.batch_actions[tm],
             log_probs=batch.batch_log_probs[tm],
             states=batch.batch_states[tm],
             avail_actions=batch.batch_avail_actions[tm],
-            advantages=advantages[tm][:, 0] if use_shared_central_value else advantages[tm],
-            returns=return_lambda[tm][:, 0] if use_shared_central_value else return_lambda[tm],
-            old_values=batch.batch_values[tm][:, 0] if use_shared_central_value else batch.batch_values[tm],
+            advantages=advantages[tm],
+            returns=return_lambda[tm],
+            old_values=batch.batch_values[tm],
             active_masks=batch.batch_active_mask[tm],
         )
 

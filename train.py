@@ -14,17 +14,16 @@ from algorithm.utils import validate_decay_schedule, get_decayed_value, Logger, 
 The main file for running experiments on AircraftEnv.
 """
 
-RUN_NAME = "test"
-TASK = "track"
-LEVEL = 2
+RUN = "final_dscale15_fscale01_event5_incr-boundary-pen"
+TASK = "escape"
+LEVEL = 1
 
 def process_args(args):
-    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/cannon/L1/rewH11/cannon_L1_MARS_rewH11_scale003_trust02_BEST"
+    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/track_L1_final"
 
+    args.run_name = f"{RUN}"
     args.level = LEVEL
-    args.run_name = f"{RUN_NAME}"
-    args.exp_name = f"{TASK}_L{args.level}"
-    args.env_name = f"{TASK}/L{args.level}"
+    args.task = f"{TASK}/L{args.level}"
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
 
     args.num_envs = 20
@@ -92,7 +91,8 @@ if __name__ == "__main__":
 
     workers = Workers(args, kwargs)
     learner = Learner(args, device, workers)
-    logger = Logger(log_dir=f"runs/{args.exp_name}_{args.run_name}", args=args)
+    task_name = args.task.replace("/", "_")
+    logger = Logger(log_dir=f"runs/{task_name}_{args.run_name}", args=args)
 
     ep_rewards = []
     ep_lengths = []
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     step = restore_checkpoint(args, device, learner) if args.restore_path is not None else 0
     iteration_times = []
 
-    progress_bar = tqdm(total=args.total_timesteps, initial=step, desc=f"train {args.exp_name} {args.env_name}", dynamic_ncols=True)
+    progress_bar = tqdm(total=args.total_timesteps, initial=step, desc=f"train {task_name}_{args.run_name}", dynamic_ncols=True)
 
     while step < args.total_timesteps:
         iteration_start = time.time()

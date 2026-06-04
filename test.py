@@ -34,7 +34,7 @@ def run_inference(num_episodes=10):
 
     args.restore_path = PATH
     args.level = LEVEL
-    args.env_name = f"{TASK}/L{LEVEL}"
+    args.task = f"{TASK}/L{LEVEL}"
     args.env_type = "aircombat"
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
 
@@ -47,7 +47,7 @@ def run_inference(num_episodes=10):
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 
-    env = AircombatMARL(env_name=args.env_name, agent_ids=args.agent_ids, **kwargs)
+    env = AircombatMARL(task=args.task, agent_ids=args.agent_ids, **kwargs)
     actors, _ = build_actor_critic(
         args, env.get_obs_size(), env.get_action_space(),
         env.get_state_size(), env.n_agents, device,

@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torch._utils")
 
 def main():
     kwargs = {"hierarchy_level": 0, "training_level": 2}
-    env = AircombatMARL(env_name="track/L1", agent_ids=False, **kwargs)
+    env = AircombatMARL(task="track/L1", agent_ids=False, **kwargs)
     act = {"B1": [10, 5, 5, 5, 1]}
 
     env.reset()

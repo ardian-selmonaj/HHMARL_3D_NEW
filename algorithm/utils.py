@@ -143,12 +143,12 @@ class CloudpickleWrapper:
 def _env_worker(
     worker,
     env_type,
-    env_name,
+    task,
     agent_ids,
     env_kwargs,
     use_avail=True,
 ):
-    env = AircombatMARL(env_name=env_name, agent_ids=agent_ids, **env_kwargs)
+    env = AircombatMARL(task=task, agent_ids=agent_ids, **env_kwargs)
     agent_keys = env.agent_keys
 
     def _obs_to_array(obs_dict):
@@ -175,15 +175,15 @@ def _env_worker(
         return {k: arr[i].astype(np.float32).reshape(-1) for i, k in enumerate(agent_keys)}
 
     while True:
-        task, content = worker.recv()
-        if task == "reset":
+        command, content = worker.recv()
+        if command == "reset":
             obs_dict, _ = env.reset()
             worker.send({
                 "obs": _obs_to_array(obs_dict),
                 "avail_actions": _avail_to_array(env.get_avail_actions()) if use_avail else None,
                 "state": env.get_state(),
             })
-        elif task == "get_env_info":
+        elif command == "get_env_info":
             worker.send({
                 "obs_size": env.get_obs_size(),
                 "action_size": env.get_action_size(),
@@ -191,7 +191,7 @@ def _env_worker(
                 "n_agents": env.n_agents,
                 "state_size": env.get_state_size(),
             })
-        elif task == "step":
+        elif command == "step":
             actions_dict = _actions_to_dict(content)
             obs_dict, reward_dict, done_dict, truncated_dict, infos = env.step(actions_dict)
             done = done_dict["all"]
@@ -214,7 +214,7 @@ def _env_worker(
                 "avail_actions": avail_actions,
                 "next_state": next_state,
             })
-        elif task == "close":
+        elif command == "close":
             env.close()
             worker.close()
             break
@@ -232,12 +232,10 @@ class Workers:
                 args=(
                     env_ends[i],
                     args.env_type,
-                    args.env_name,
+                    args.task,
                     args.agent_ids,
                     {
                         **kwargs,
-                        "shared_rewards": args.shared_rewards,
-                        "global_state": args.centralized_critic,
                         "seed": args.seed + i * 1000,
                     },
                     getattr(args, "avail_actions", True),

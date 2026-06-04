@@ -317,13 +317,12 @@ class AircombatMARL:
 
     def __init__(
         self,
-        env_name=None,
+        task=None,
         agent_ids=False,
-        global_state=True,
         seed=None,
         **kwargs,
     ):
-        config = {"mission_config": env_name, **kwargs}  # kwargs carries hierarchy_level/training_level
+        config = {"mission_config": task, **kwargs}  # kwargs carries hierarchy_level/training_level
         self.env = AircraftEnv(config)
         if seed is not None:
             self.env.seed(seed)
@@ -331,7 +330,6 @@ class AircombatMARL:
         self.first_agent = self.agent_keys[0]
         self.n_agents = len(self.agent_keys)
         self.agent_ids = agent_ids
-        self.use_global_state = global_state
 
     def reset(self, seed=None, options=None):
         return self.env.reset(seed, options)
