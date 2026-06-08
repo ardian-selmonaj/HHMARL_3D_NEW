@@ -14,12 +14,12 @@ from algorithm.utils import validate_decay_schedule, get_decayed_value, Logger, 
 The main file for running experiments on AircraftEnv.
 """
 
-RUN = "final_dscale15_fscale01_event5_incr-boundary-pen"
-TASK = "escape"
-LEVEL = 1
+RUN = "final"
+TASK = "track"
+LEVEL = 3
 
 def process_args(args):
-    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/track_L1_final"
+    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/FINAL/track_L2_final"
 
     args.run_name = f"{RUN}"
     args.level = LEVEL

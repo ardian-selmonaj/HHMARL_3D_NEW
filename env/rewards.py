@@ -173,28 +173,7 @@ class HeadingReward(BaseRewardFunction):
             h = 0.35 * head_a + 0.65 * head_t
             d = 0.333 * delta_loc(delta_x) + 0.333 * delta_loc(delta_y) + 0.333 * delta_loc(delta_z)
             v = 0.5 * delta_vel(delta_vx) + 0.5 * delta_vel(delta_vy)
-
-            # H7 # VERY GOOD, track_scale 0.1
-            # h = 0.35 * head_a + 0.65 * head_t
-            # roll_scale = 35
-            # roll_rr_scale = 25
-            # pitch_rr_scale = 15
-            # roll_r = math.exp(-((a_r/roll_scale)**4))
-            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            # reward = h * (d+v) + 0.7*h*(0.3*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.1*(pitch_rr-0.5)*2)
-
-            # H8
-            # h = 0.35 * head_a + 0.65 * head_t
-            # roll_scale = 35
-            # roll_rr_scale = 25
-            # pitch_rr_scale = 15
-            # roll_r = math.exp(-((a_r/roll_scale)**4))
-            # roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
-            # pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            # reward = h*(0.7*(d+v) + 0.3*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
-
-            # H88
+            
             h = 0.35 * head_a + 0.65 * head_t
             roll_scale = 35
             roll_rr_scale = 25
@@ -202,9 +181,6 @@ class HeadingReward(BaseRewardFunction):
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            # reward = h*(d + v + 0.6*(0.3*(roll_r-0.5)*2 + 0.5*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2))
-
-            # final
             reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2)
 
         elif self.opposite:
@@ -266,8 +242,8 @@ class FleeReward(BaseRewardFunction):
     def get_reward(self, task, env, agent_id, action=None):
         def boundary_pen(d):
             margin = self.half_map - d
-            bnd_offset = 15 #10
-            bnd_scale = 5 #3
+            bnd_offset = 13
+            bnd_scale = 3
             if margin > bnd_offset:
                 return 0
             return -(1 - math.exp(-(((bnd_offset - margin)/bnd_scale)**2)))
@@ -298,7 +274,6 @@ class FleeReward(BaseRewardFunction):
 
         v = speed_rew(env.agents[agent_id].get_norm_velocity_2d() * 3.6)
 
-        # reward = 0.2*a + 0.4*b + 0.4*v
         reward = a + b + v
         return self._process(reward, agent_id)
 
