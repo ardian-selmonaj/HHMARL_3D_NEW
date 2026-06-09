@@ -14,12 +14,19 @@ from algorithm.utils import validate_decay_schedule, get_decayed_value, Logger, 
 The main file for running experiments on AircraftEnv.
 """
 
-RUN = "final"
-TASK = "track"
-LEVEL = 3
+RUN = "d7_f07_h003_shot3_ev5"
+TASK = "escape"
+LEVEL = 1
+
+def entropy_decay_schedule(args):
+    if args.level >= 3 and args.task.startswith("track") or args.level >= 3 and args.task.startswith("cannon") or args.level >= 2 and args.task.startswith("escape"):
+        args.entropy_coef = 0
+        return None
+    else:
+        return [[30000000 * (args.level-1), 0.07], [30000000 * (args.level-1) + 2e6, 0]]
 
 def process_args(args):
-    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/FINAL/track_L2_final"
+    #args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs_verify/FINAL/cannon_L2_final"
 
     args.run_name = f"{RUN}"
     args.level = LEVEL
@@ -42,7 +49,7 @@ def process_args(args):
     args.use_ReLU = True
     args.td_lambda = 0.92
     args.total_timesteps = 30000000 * args.level
-    args.entropy_decay = [[30000000 * (args.level-1), 0.1], [30000000 * (args.level-1) + 2e6, 0]]
+    args.entropy_decay = entropy_decay_schedule(args)
 
     args.avail_actions = False
     args.torch_compile = False
