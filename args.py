@@ -33,7 +33,7 @@ class Args:
     """ If True, mask dead agents out of the actor loss (active masks on policy) """
     value_mask: bool = True
     """ If True, mask dead agents out of the critic loss (active masks on value) """
-    actor_hidden_dim: int = 64
+    actor_hidden_dim: int = 128
     """ Hidden dimension of actor network"""
     actor_num_layers: int = 1
     """ Number of hidden layers of actor network"""
@@ -41,7 +41,7 @@ class Args:
     """ Share one actor across all agents; otherwise one actor per agent"""
     centralized_critic: bool = True
     """ If True, critic takes global state as input (MAPPO); if False, takes each agent's local obs (IPPO) """
-    critic_hidden_dim: int = 64
+    critic_hidden_dim: int = 128
     """ Hidden dimension of critic network"""
     critic_num_layers: int = 1
     """ Number of hidden layers of critic network"""

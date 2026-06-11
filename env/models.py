@@ -7,7 +7,8 @@ from gymnasium import spaces
 from env.catalog import Catalog as c
 from env.missions import BaseMission
 from env.base_actor.baseline_actor import BaselineActor
-from env.utils import get_root_dir, in_range_rad, load_low_level_policies
+from env.utils import get_root_dir, in_range_rad, load_low_level_policies, load_pretrained_actors
+from args import Args
 
 
 class TrackModel(BaseMission):
@@ -218,6 +219,62 @@ class L3maneuverModel(TrackModel):
     def step(self, env, agent):
         if agent.cannon.done:
             agent.cannon.revert_cannon()
+
+
+class SpmaneuverModel(BaseMission):
+    """
+    Self-play opponent.
+    """
+
+    def load_rewards(self):
+        self.rewards = []
+
+    def load_model(self):
+        policy_name = "cannon_L2_f16"
+        # lazy import: avoids env -> algorithm cycle at module import time.
+        from algorithm.networks import build_actor_critic, act_with_policies
+        # Bind act_with_policies once so get_action doesn't re-import on every step.
+        self._act_with_policies = act_with_policies
+
+        self.actor_args = Args()
+        self.actor_args.use_ReLU = True
+        self.actor_args.avail_actions = False
+        self.actor_args.torch_compile = False
+
+        device = torch.device("cpu")
+        action_space = ("multi_discrete", list(self.action_space.nvec))
+        self.actors, _ = build_actor_critic(
+            self.actor_args,
+            obs_dim=self.obs_len,
+            action_space=action_space,
+            state_dim=self.obs_len,
+            num_agents=1,
+            device=device,
+        )
+        ckpt = load_pretrained_actors(policy_name, device=device)
+        self.actors.load_state_dict(ckpt["actors_state_dict"])
+        self.actors.eval()
+
+    def step(self, env, agent):
+        if agent.cannon.done:
+            agent.cannon.revert_cannon()
+
+    def get_action(self, action=None, agent=None, env=None):
+        obs = self.get_obs(env=env, agent=agent)
+        obs_t = torch.as_tensor(obs, dtype=torch.float32).view(1, 1, -1)
+        with torch.no_grad():
+            actions, _, _, _ = self._act_with_policies(
+                self.actor_args, self.actors, obs_t,
+                rnn_hxs=None, masks=None, deterministic=True,
+            )
+        act = actions[0, 0].cpu().numpy()
+        if bool(act[4]):
+            self._cannon(agent, env)
+        return super().get_action(action=act, agent=agent, env=env)
+
+    def _cannon(self, agent, env):
+        if agent.alive and agent.cannon.ready:
+            agent.cannon.launch(parent=agent, env=env)
 
 
 class StrategyModel(BaseMission):

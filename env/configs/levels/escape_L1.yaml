@@ -6,7 +6,7 @@ aircraft:
   R2:
     mission: model_L3Maneuver
 
-ShootPenaltyReward_scale: 3
+ShootPenaltyReward_scale: 10
 ShootPenaltyReward_posture_punish: false
 
 DistanceReward_potential: true
@@ -14,9 +14,9 @@ DistanceReward_scale: 7
 
 HeadingReward_track: false
 HeadingReward_opposite: true
-HeadingReward_scale: 0.03
+HeadingReward_scale: 0.05
 
 FleeReward_potential: false
 FleeReward_scale: 0.7
 
-EventDrivenReward_scale: 5 # 10 
+EventDrivenReward_scale: 10 
