@@ -4,7 +4,7 @@ aircraft:
   B1:
     mission: task_escape
   R2:
-    mission: model_L3Maneuver
+    mission: model_L2Maneuver
 
 ShootPenaltyReward_scale: 10
 ShootPenaltyReward_posture_punish: false

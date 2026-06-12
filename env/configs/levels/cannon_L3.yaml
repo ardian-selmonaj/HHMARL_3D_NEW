@@ -6,6 +6,8 @@ aircraft:
   R2:
     mission: model_SPManeuver #task_cannon
 
+sp_policy_name: cannon_L2_f16
+
 HeadingReward_scale: 0.05
 HeadingReward_track: false
 

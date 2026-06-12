@@ -4,7 +4,10 @@ aircraft:
   B1:
     mission: task_track
   R2:
-    mission: task_track
+    mission: model_SPManeuver #task_track
+
+# Pre-trained policy (runs/<name>) that the SP opponent loads.
+sp_policy_name: track_L2_f16
 
 HeadingReward_track: true
 HeadingReward_scale: 0.1

@@ -4,7 +4,7 @@ aircraft:
   B1:
     mission: task_track
   R2:
-    mission: model_L3Maneuver
+    mission: model_L2Maneuver
 
 HeadingReward_track: true
 HeadingReward_scale: 0.1

@@ -105,42 +105,6 @@ class TrackModel(BaseMission):
 
 
 class L1maneuverModel(TrackModel):
-    """Randomly turn right and change velocity & heading. Circling agent."""
-
-    def __init__(self, config):
-        super().__init__(config)
-        self.turn_interval = 40
-        self.step_interval = self.turn_interval / 0.1
-        self.target_heading_list = [np.pi/3, np.pi, -np.pi/3]
-        self.target_altitude = 6000
-        self.target_velocity = 250
-
-    def reset(self, env):
-        self._step = 0
-        self._i = 0
-        self._rnd_head = 0
-        self._rnd_vel = 0
-        self.init_heading = None
-        super().reset(env)
-
-    def set_delta_value(self, agent):
-        cur_heading = agent.get_property_value(c.attitude_heading_true_rad)
-        if self.init_heading is None:
-            self.init_heading = cur_heading
-
-        if self._step % self.step_interval == 0:
-            self._i = (self._i + 1) % 3
-            self._rnd_head = np.random.randint(-700, 700)
-            self._rnd_vel = np.random.randint(-20, 20)
-
-        delta_heading = self.init_heading + self.target_heading_list[self._i] - cur_heading
-        delta_altitude = self.target_altitude + self._rnd_head - agent.get_property_value(c.position_h_sl_m)
-        delta_velocity = self.target_velocity + self._rnd_vel - agent.get_property_value(c.velocities_u_mps)
-        self._step += 1
-        return np.array([delta_altitude, delta_heading, delta_velocity])
-
-
-class L2maneuverModel(TrackModel):
     """Randomly turn left or right; randomly shoot cannon."""
 
     def __init__(self, config):
@@ -189,7 +153,7 @@ class L2maneuverModel(TrackModel):
             agent.cannon.revert_cannon()
 
 
-class L3maneuverModel(TrackModel):
+class L2maneuverModel(TrackModel):
     """Tracks and shoots (rather) precisely with cannon."""
 
     def reset(self, env):
@@ -230,10 +194,8 @@ class SpmaneuverModel(BaseMission):
         self.rewards = []
 
     def load_model(self):
-        policy_name = "cannon_L2_f16"
-        # lazy import: avoids env -> algorithm cycle at module import time.
+        policy_name = getattr(self.config, "sp_policy_name", "cannon_L2_f16")
         from algorithm.networks import build_actor_critic, act_with_policies
-        # Bind act_with_policies once so get_action doesn't re-import on every step.
         self._act_with_policies = act_with_policies
 
         self.actor_args = Args()
