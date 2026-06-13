@@ -240,12 +240,41 @@ class SpmaneuverModel(BaseMission):
 
 
 class StrategyModel(BaseMission):
-    """L4 opponent that picks low-level pre-trained policies with a mixed strategy."""
+    """
+    L4 opponent that picks low-level pre-trained policies with a mixed strategy.
+    """
+
+    # Map the high-level discrete choice to the task whose policy we run.
+    HL_ACTION_MAPPING = {0: 'cannon', 1: 'track', 2: 'escape'}
+    # In L4 training only the f16 model is used (better performance than A4).
+    POLICY_PATHS = {'cannon': 'cannon_L3_f16', 'track': 'track_L3_f16', 'escape': 'escape_L1_f16'}
 
     def load_model(self):
-        # In L4 training only the f16 model is used (better performance than A4).
-        pol_dirs = ['L3_cannon_f16', 'L3_track_f16', 'L1_escape_f16']
-        self.policies = load_low_level_policies(pol_dirs)['f16']
+        from algorithm.networks import build_actor_critic, act_with_policies
+        self._act_with_policies = act_with_policies
+
+        # Single shared config for all actors.
+        self.actor_args = Args()
+        self.actor_args.use_ReLU = True
+        self.actor_args.avail_actions = False
+        self.actor_args.torch_compile = False
+
+        device = torch.device("cpu")
+        action_space = ("multi_discrete", list(self.action_space.nvec))
+        self.policies = {}
+        for task, policy_name in self.POLICY_PATHS.items():
+            actors, _ = build_actor_critic(
+                self.actor_args,
+                obs_dim=self.obs_len,
+                action_space=action_space,
+                state_dim=self.obs_len,
+                num_agents=1,
+                device=device,
+            )
+            ckpt = load_pretrained_actors(policy_name, device=device)
+            actors.load_state_dict(ckpt["actors_state_dict"])
+            actors.eval()
+            self.policies[task] = actors
 
     def reset(self, env):
         self.policy_set_step = 0
@@ -259,19 +288,15 @@ class StrategyModel(BaseMission):
     def load_rewards(self):
         self.rewards = []
 
-    def load_act_space(self):
-        self.hl_action_mapping = {0: 'cannon', 1: 'track', 2: 'escape'}
-
-    def load_obs_space(self):
-        pass
+    #load_act_space / load_obs_space are inherited from BaseMission.
 
     def get_action(self, action, agent, env):
-        # Switch strategy every (env.horizon / 5) steps.
-        if self.policy_set_step == 0 or abs(env.steps - self.policy_set_step) > (env.horizon / 5):
+        # Switch strategy every (env.horizon / 3) steps (horizon 600 -> every 200 steps).
+        if self.policy_set_step == 0 or abs(env.steps - self.policy_set_step) > (env.horizon / 3):
             self.set_policy(action, agent, env)
             self.policy_set_step = env.steps
 
-        assert self.policy_to_use[agent.aid], f"No policy was selected for agent {agent.aid}"
+        assert self.policy_to_use[agent.aid] is not None, f"No policy was selected for agent {agent.aid}"
 
         obs = super().get_obs(env=env, agent=agent)
         act = self.get_policy_action(obs=obs, agent=agent)
@@ -280,20 +305,15 @@ class StrategyModel(BaseMission):
         return super().get_action(action=act, agent=agent, env=env)
 
     def set_policy(self, action, agent, env):
-        act = random.choices([0, 1, 2], weights=[0.4, 0.4, 0.2], k=1)[0]
-        self.policy_to_use[agent.aid] = self.policies[self.hl_action_mapping[act]]
+        act = random.choices([0, 1, 2], weights=[0.4, 0.3, 0.3], k=1)[0]
+        self.policy_to_use[agent.aid] = self.policies[self.HL_ACTION_MAPPING[act]]
 
     def get_policy_action(self, obs, agent):
-        from algorithm import networks  # lazy: avoids env -> algorithm cycle at import time
-        act_with_policies = networks.act_with_policies
-        policy = self.policy_to_use[agent.aid]
-        actors = policy.get('actors')
-        if actors is None:
-            raise RuntimeError("StrategyModel: pretrained actors not instantiated. Call attach_actor_modules() before stepping.")
+        actors = self.policy_to_use[agent.aid]
         obs_t = torch.as_tensor(obs, dtype=torch.float32).view(1, 1, -1)
         with torch.no_grad():
-            actions, _, _, _ = act_with_policies(
-                policy['args'], actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
+            actions, _, _, _ = self._act_with_policies(
+                self.actor_args, actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
             )
         return actions[0, 0].cpu().numpy()
 

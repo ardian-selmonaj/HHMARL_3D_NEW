@@ -2,7 +2,7 @@
 
 aircraft:
   B1:
-    mission: task_track0
+    mission: task_track
   R2:
     mission: model_strategy
 

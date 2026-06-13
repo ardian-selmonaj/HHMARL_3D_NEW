@@ -15,8 +15,8 @@ The main file for running experiments on AircraftEnv.
 """
 
 RUN = "final"
-TASK = "track"
-LEVEL = 3
+TASK = "escape"
+LEVEL = 2
 
 def entropy_decay_schedule(args):
     if args.level >= 3 and args.task.startswith("track") or args.level >= 3 and args.task.startswith("cannon") or args.level >= 2 and args.task.startswith("escape"):
@@ -26,7 +26,7 @@ def entropy_decay_schedule(args):
         return [[30000000 * (args.level-1), 0.07], [30000000 * (args.level-1) + 2e6, 0]]
 
 def process_args(args):
-    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/track_L2_f16"
+    args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/escape_L1_f16"
 
     args.run_name = f"{RUN}"
     args.level = LEVEL
