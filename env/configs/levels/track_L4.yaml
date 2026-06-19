@@ -11,3 +11,5 @@ HeadingReward_scale: 0.1
 
 ShootPenaltyReward_posture_punish: false
 ShootPenaltyReward_scale: 1.0
+
+EventDrivenReward_scale: 1.0

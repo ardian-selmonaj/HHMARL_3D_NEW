@@ -80,6 +80,13 @@ def parse_config(name):
         assert os.path.exists(cfg_path), f"Missing config at {cfg_path}"
         merged = _deep_merge(merged, _load_yaml(cfg_path))
 
+    # A config may remove an inherited aircraft (e.g. base.yaml's R2 when a hier
+    # roster uses different ids) by setting it to null. Drop those entries so the
+    # env never sees a roster slot without a mission.
+    aircraft = merged.get('aircraft')
+    if isinstance(aircraft, dict):
+        merged['aircraft'] = {aid: cfg for aid, cfg in aircraft.items() if cfg is not None}
+
     return type('EnvConfig', (object,), merged)
 
 

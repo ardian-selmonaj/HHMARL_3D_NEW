@@ -153,12 +153,15 @@ class HeadingReward(BaseRewardFunction):
 
     def get_reward(self, task, env, agent_id, action=None):
         a_a, a_t, a_r, a_rr, a_pr, dist = self.get_orientation_metrics(env, agent_id, deg=True)
+        a_a_opp, _, _, _, _, _ = self.get_orientation_metrics(env, env.agents[agent_id].opponents[0].aid, deg=True)
         delta_x, delta_y, delta_z, delta_vx, delta_vy, delta_vz = self.get_delta_values(env, agent_id, in_km=True)
 
         if self.track:
             head_scale = 10
             head_a = math.exp(-((a_a/head_scale)**2))
             head_t = math.exp(-((a_t/head_scale)**2))
+
+            head_a_opp = math.exp(-((a_a_opp/head_scale)**2))
 
             def delta_loc(x):
                 dist_scale = 4
@@ -170,18 +173,18 @@ class HeadingReward(BaseRewardFunction):
                 vel_offset = 30
                 return 1 if x < vel_offset else math.exp(-(((x-vel_offset)/vel_scale)**2))
 
-            h = 0.35 * head_a + 0.65 * head_t
+            h = 0.3 * head_a + 0.7 * head_t
             d = 0.333 * delta_loc(delta_x) + 0.333 * delta_loc(delta_y) + 0.333 * delta_loc(delta_z)
             v = 0.5 * delta_vel(delta_vx) + 0.5 * delta_vel(delta_vy)
-            
-            h = 0.35 * head_a + 0.65 * head_t
+
             roll_scale = 35
             roll_rr_scale = 25
             pitch_rr_scale = 15
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
-            reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2)
+            # reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2)
+            reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2) - 0.2*head_a_opp*head_a*(0.5 * delta_loc(delta_x) + 0.5 * delta_loc(delta_y))
 
         elif self.opposite:
             head_scale = 40

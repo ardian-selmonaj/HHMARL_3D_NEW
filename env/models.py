@@ -7,7 +7,7 @@ from gymnasium import spaces
 from env.catalog import Catalog as c
 from env.missions import BaseMission
 from env.base_actor.baseline_actor import BaselineActor
-from env.utils import get_root_dir, in_range_rad, load_low_level_policies, load_pretrained_actors
+from env.utils import get_root_dir, in_range_rad, load_pretrained_actors
 from args import Args
 
 
@@ -322,17 +322,52 @@ class StrategyModel(BaseMission):
             agent.cannon.launch(parent=agent, env=env)
 
 
+def build_low_level_actors(obs_len, action_nvec, policy_paths, device=torch.device("cpu")):
+    """Instantiate and load the low-level actor modules used by hierarchical commanders.
+
+    policy_paths: {task: run_dir_name}. Returns ({task: actors}, actor_args) where each
+    `actors` is a ModuleDict ready for algorithm.networks.act_with_policies. Mirrors how
+    StrategyModel.load_model builds its policies (same Args flags), so the high-level
+    commander and the L4 opponent share one instantiation path.
+    """
+    from algorithm.networks import build_actor_critic
+
+    actor_args = Args()
+    actor_args.use_ReLU = True
+    actor_args.avail_actions = False
+    actor_args.torch_compile = False
+
+    action_space = ("multi_discrete", list(action_nvec))
+    policies = {}
+    for task, policy_name in policy_paths.items():
+        actors, _ = build_actor_critic(
+            actor_args, obs_dim=obs_len, action_space=action_space,
+            state_dim=obs_len, num_agents=1, device=device,
+        )
+        ckpt = load_pretrained_actors(policy_name, device=device)
+        actors.load_state_dict(ckpt["actors_state_dict"])
+        actors.eval()
+        policies[task] = actors
+    return policies, actor_args
+
+
 class HierModel(BaseMission):
     """High-level commander opponent that follows a mixed strategy over L4 policies."""
+
+    HL_ACTION_MAPPING = {0: 'cannon', 1: 'track', 2: 'escape'}
+    # Low-level pre-trained policies, keyed by task -> runs/<dir>.
+    POLICY_PATHS = {'cannon': 'cannon_L4_f16', 'track': 'track_L4_f16', 'escape': 'escape_L2_f16'}
 
     def __init__(self, config):
         super().__init__(config)
         self.opp_hier_strategy = getattr(config, 'opp_hier_strategy', "mixed")
 
     def load_model(self):
-        # pol_dirs = ['L4_cannon_f16', 'L4_cannon_A4', 'L4_track_f16', 'L4_track_A4', 'L2_escape_f16', 'L2_escape_A4']
-        pol_dirs = ['L4_cannon_f16', 'L4_track_f16', 'L2_escape_f16']
-        self.policies = load_low_level_policies(pol_dirs)
+        from algorithm.networks import act_with_policies
+        self._act_with_policies = act_with_policies
+        self.policies, self.actor_args = build_low_level_actors(
+            self.obs_len, self.action_space.nvec, self.POLICY_PATHS,
+        )
 
     def reset(self, env):
         self.policy_to_use = {aid: None for aid in env.agents.keys()}
@@ -345,14 +380,8 @@ class HierModel(BaseMission):
     def load_rewards(self):
         self.rewards = []
 
-    def load_act_space(self):
-        self.hl_action_mapping = {0: 'cannon', 1: 'track', 2: 'escape'}
-
-    def load_obs_space(self):
-        pass
-
-    def get_obs(self, env, agent, **kwargs):
-        pass
+    # load_act_space / load_obs_space are inherited from BaseMission: the opponent
+    # runs the low-level policies, so it uses the low-level obs/action layout.
 
     def set_policy(self, action, agent, env):
         if self.opp_hier_strategy == "mixed":
@@ -361,29 +390,25 @@ class HierModel(BaseMission):
             act = random.choices([0, 1, 2], weights=[0.7, 0.2, 0.1], k=1)[0]
         else:
             act = np.random.randint(0, 3)
-        self.policy_to_use[agent.aid] = self.policies[agent.model][self.hl_action_mapping[act]]
+        self.policy_to_use[agent.aid] = self.policies[self.HL_ACTION_MAPPING[act]]
 
     def run_action(self, agent, env):
-        ll_obs = super().get_obs(env=env, agent=agent)
+        ll_obs = self.get_obs(env=env, agent=agent)
         ll_action = self.get_ll_action(ll_obs, agent)
         if bool(ll_action[4]):
             self._cannon(agent, env)
-        ll_action = super().get_action(action=ll_action, agent=agent, env=env)
+        ll_action = self.get_action(action=ll_action, agent=agent, env=env)
         agent.set_property_values(self.action_var, ll_action)
         for _ in range(env.sim_steps):
             agent.run()
 
     def get_ll_action(self, obs, agent):
-        from algorithm import networks  # lazy: avoids env -> algorithm cycle at import time
-        act_with_policies = networks.act_with_policies
-        policy = self.policy_to_use[agent.aid]
-        actors = policy.get('actors')
-        if actors is None:
-            raise RuntimeError("HierModel: pretrained actors not instantiated. Call attach_actor_modules() before stepping.")
+        actors = self.policy_to_use[agent.aid]
+        assert actors is not None, f"No low-level policy selected for opponent {agent.aid}"
         obs_t = torch.as_tensor(obs, dtype=torch.float32).view(1, 1, -1)
         with torch.no_grad():
-            actions, _, _, _ = act_with_policies(
-                policy['args'], actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
+            actions, _, _, _ = self._act_with_policies(
+                self.actor_args, actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
             )
         return actions[0, 0].cpu().numpy()
 

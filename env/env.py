@@ -221,7 +221,14 @@ class AircraftEnv(gym.Env):
 
 
 class AircraftEnvHier(AircraftEnv):
-    """AircraftEnv for hierarchical training."""
+    """AircraftEnv for high-level commander (hierarchy_level==2) training.
+
+    One environment step is a *high-level* step: the commander assigns a low-level
+    policy (cannon/track/escape) to each aircraft, and that policy is rolled out for
+    `hl_sim_steps` low-level steps. Rewards accumulate over the inner steps. Agents
+    are never removed from `self.agents`; death is tracked via `agent.alive`, so obs
+    and state keep a fixed shape across the episode (required by the rollout buffer).
+    """
 
     def __init__(self, config: dict, inference: bool = False, rendering: bool = False, render_view: int = 0):
         super().__init__(config)
@@ -229,91 +236,90 @@ class AircraftEnvHier(AircraftEnv):
         self.inference = inference
         self.rendering = rendering
         self.render_view = render_view
-        self.dead_agent_ids = []
         assert len(self.rl_agent_ids) > 0 and len(self.opp_agent_ids) > 0, \
             f"RL agents {len(self.rl_agent_ids)} and Opp agents {len(self.opp_agent_ids)}"
 
     def step(self, action):
         self.steps += 1
-        rewards = {aid: 0 for aid, agent in self.agents.items() if agent.is_learning}
-        trunc = term = {aid: False for aid, agent in self.agents.items() if agent.is_learning}
-        dones = {aid: False for aid in self.agents.keys()}
-        obs = {}
+        timed_out = self.steps >= self.horizon
+        rewards = {aid: 0.0 for aid in self.rl_agent_ids}
 
+        # 1. Commander assigns a low-level policy to every (alive) aircraft.
+        #    RL agents use the learned high-level `action`; opponents use a scripted strategy.
         for aid, agent in self.agents.items():
-            agent.mission.set_policy(action=action.get(aid, None), agent=agent, env=self)
+            if agent.alive:
+                agent.mission.set_policy(action=action.get(aid, None), agent=agent, env=self)
 
-        termination_condition = False
-        i = 0
-        while i <= self.hl_sim_steps and not termination_condition:
+        # 2. Roll the chosen low-level policies out for hl_sim_steps low-level steps,
+        #    accumulating per-agent reward and stopping early on a terminal event.
+        terminated_event = False
+        for _ in range(self.hl_sim_steps):
             if self.rendering:
                 self.render(viewpoint=self.render_view)
             for aid, agent in self.agents.items():
-                agent.mission.run_action(agent=agent, env=self)
-                if agent.mission.get_termination(self, aid):
-                    termination_condition = True
-                    dones[aid] = True
-                    if agent.is_learning:
-                        term[aid] = True
-                if agent.is_learning:
-                    rewards[aid] += self.get_reward(aid, action, raw_value=True)
-                agent.mission.step(self, agent)
-            i += 1
-
-        if self.steps >= self.horizon:
-            for aid in trunc:
-                if not term[aid]:
-                    trunc[aid] = True
-
-        if not self.inference:
-            for aid in self.agents:
-                obs.update(self.get_obs(aid))
-
-        for aid, dead in dones.items():
-            if not dead:
-                continue
-            dead_agent = self.agents.get(aid)
-            if not dead_agent:
-                continue
-            for agent in self.agents.values():
-                if agent.aid == dead_agent.aid:
+                if not agent.alive:
                     continue
-                if agent.tid == dead_agent.tid:
-                    agent.partners.remove(dead_agent)
-                else:
-                    agent.opponents.remove(dead_agent)
-            if dead_agent.aid in self.rl_agent_ids:
-                self.rl_agent_ids.remove(dead_agent.aid)
-            elif dead_agent.aid in self.opp_agent_ids:
-                self.opp_agent_ids.remove(dead_agent.aid)
-            self.dead_agent_ids.append(dead_agent.aid)
-            del self.agents[dead_agent.aid]
+                agent.mission.run_action(agent=agent, env=self)
+            for aid, agent in self.agents.items():
+                if agent.is_learning and agent.alive:
+                    rewards[aid] += self.get_reward(aid, action, raw_value=True)
+                if agent.alive:
+                    agent.mission.step(self, agent)
+            if self._opponents_eliminated() or all(
+                not self.agents[aid].alive for aid in self.rl_agent_ids
+            ):
+                terminated_event = True
+                break
 
-        if self.inference:
-            for aid in self.agents:
-                obs.update(self.get_obs(aid))
+        # 3. Per-agent termination/truncation for the learning agents.
+        terminated = {
+            aid: bool(self.agents[aid].mission.get_termination(self, aid))
+            for aid in self.rl_agent_ids
+        }
+        truncated = {aid: (timed_out and not terminated[aid]) for aid in self.rl_agent_ids}
 
-        all_opps_dead, learn, non_learn = self.check_dead_agents()
+        obs = {}
+        for aid in self.rl_agent_ids:
+            obs.update(self.get_obs(aid))
+
+        info = self._combat_info()
+        self._alive_last_step = {aid for aid, agent in self.agents.items() if agent.alive}
+
         all_done = (
-            len(self.rl_agent_ids) == 0 or len(self.opp_agent_ids) == 0
-            or all_opps_dead or learn == 0 or non_learn == 0
-            or self.steps >= self.horizon
+            all(terminated[aid] for aid in self.rl_agent_ids)
+            or self._opponents_eliminated()
+            or terminated_event
+            or timed_out
         )
-        term["__all__"] = trunc["__all__"] = all_done
+        terminated["all"] = all_done
+        truncated["all"] = timed_out and not all(terminated[aid] for aid in self.rl_agent_ids)
 
-        if self.inference:
-            return obs, rewards, term, trunc, {"dones": dones}
-        return obs, rewards, term, trunc, {}
+        self.log.debug(f"hl_step={self.steps}, term={terminated}, trunc={truncated}")
+        return obs, rewards, terminated, truncated, info
 
-    def check_dead_agents(self):
-        learning = sum(1 for a in self.agents.values() if a.is_learning)
-        non_learning = sum(1 for a in self.agents.values() if not a.is_learning)
-        all_opps_dead = any(len(a.opponents) == 0 for a in self.agents.values())
-        return all_opps_dead, learning, non_learning
+    def get_obs(self, aid: str = None) -> dict:
+        """Like the base get_obs, but a dead learning agent yields a fixed-shape zero
+        vector instead of querying JSBSim (whose state is undefined once destroyed)."""
+        if aid is not None:
+            agent = self.agents[aid]
+            if not agent.is_learning:
+                return {}
+            if not agent.alive:
+                shape = self.observation_space[aid].shape
+                return {aid: np.zeros(shape, dtype=np.float32)}
+            return {aid: agent.mission.get_obs(self, agent)}
+        return {
+            aid: self.get_obs(aid)[aid]
+            for aid, agent in self.agents.items() if agent.is_learning
+        }
 
 
 class AircombatMARL:
-    """Adapts AircraftEnv to the interface expected by the learner/workers."""
+    """Adapts AircraftEnv to the interface expected by the learner/workers.
+
+    hierarchy_level==2 selects AircraftEnvHier (high-level commander training);
+    any other value selects the base low-level AircraftEnv.
+    """
 
     def __init__(
         self,
@@ -323,13 +329,18 @@ class AircombatMARL:
         **kwargs,
     ):
         config = {"mission_config": task, **kwargs}  # kwargs carries hierarchy_level/training_level
-        self.env = AircraftEnv(config)
+        hierarchy_level = kwargs.get("hierarchy_level", 0)
+        env_cls = AircraftEnvHier if hierarchy_level == 2 else AircraftEnv
+        self.env = env_cls(config)
         if seed is not None:
             self.env.seed(seed)
-        self.agent_keys = self.env.rl_agent_ids
+        self.agent_keys = list(self.env.rl_agent_ids)
         self.first_agent = self.agent_keys[0]
         self.n_agents = len(self.agent_keys)
         self.agent_ids = agent_ids
+        # The commander uses spaces.Discrete; low-level tasks use MultiDiscrete.
+        self._act_space = self.env.action_space[self.first_agent]
+        self._is_discrete = isinstance(self._act_space, gym.spaces.Discrete)
 
     def reset(self, seed=None, options=None):
         return self.env.reset(seed, options)
@@ -347,14 +358,18 @@ class AircombatMARL:
         return self.env.get_obs(self.first_agent)[self.first_agent]
 
     def get_action_size(self):
-        return list(self.env.action_space[self.first_agent].nvec)
+        if self._is_discrete:
+            return [int(self._act_space.n)]
+        return list(self._act_space.nvec)
 
     def get_action_space(self):
-        return ("multi_discrete", list(self.env.action_space[self.first_agent].nvec))
+        if self._is_discrete:
+            return ("discrete", int(self._act_space.n))
+        return ("multi_discrete", list(self._act_space.nvec))
 
     def get_avail_actions(self):
-        return {aid: np.ones(len(self.env.action_space[aid].nvec), dtype=np.float32)
-                for aid in self.agent_keys}
+        n = int(self._act_space.n) if self._is_discrete else len(self._act_space.nvec)
+        return {aid: np.ones(n, dtype=np.float32) for aid in self.agent_keys}
 
     def get_agents(self):
         return self.agent_keys

@@ -25,8 +25,8 @@ class Args:
     """ Run name used by training logs and progress output """
     level: int = 1
     """ level of task. """
-    hierarchy_level: int = 0
-    """ Hierarchical Level """
+    hierarchy_level: int = 1
+    """ Hierarchical Level (1 = low-level control training, 2 = high-level commander training) """
     agent_ids: bool = False
     """ Include id (one-hot vector) at the agent of the observations"""
     policy_mask: bool = True
@@ -76,7 +76,7 @@ class Args:
     """ Number of training epochs"""
     algorithm: str = "ppo"
     """ Policy optimization algorithm: "ppo" (clipped surrogate), "spo" (soft quadratic penalty), or "mars" (multiplicatively symmetric geometric barrier) """
-    trust_region_clip: float = 0.2
+    trust_region_clip: float = 0.25
     """ Trust region parameter ε. For PPO: clipping factor. For SPO: penalty scale. For MARS: B_upper = 1+ε, B_lower = 1/B_upper. """
     clip_value_loss: float = 1.0
     """ If >0, clip value targets at ±this amount from old values; ≤0 disables clipping """

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from gymnasium import spaces
 
 from env.catalog import Catalog as c
-from env.utils import get_AO_TA_R, LLA2NEU, get_separate_deltas, load_pretrained_actors
+from env.utils import get_AO_TA_R, LLA2NEU, get_separate_deltas
 from env.terminations import ExtremeState, Overload, LowAltitude, DeadAgent
 from env.rewards import (
     EventDrivenReward,
@@ -284,10 +284,25 @@ class EscapeTask(TrackTask):
 
 
 class HierTask(BaseMission):
-    """High-level commander policy that picks among pre-trained low-level policies."""
+    """High-level commander policy (the agent being trained).
 
-    def __init__(self, config):
-        super().__init__(config)
+    The commander's own obs/action space is high-level (Discrete over cannon/track/
+    escape). Each high-level action selects a pre-trained low-level policy whose
+    multi-discrete control output is what actually drives the aircraft. Unlike
+    HierModel (whose policy choice comes from a scripted strategy in set_policy),
+    HierTask receives its choice from the high-level policy being learned.
+    """
+
+    HL_ACTION_MAPPING = {0: 'cannon', 1: 'track', 2: 'escape'}
+    # Low-level pre-trained policies, keyed by task -> runs/<dir>.
+    POLICY_PATHS = {'cannon': 'cannon_L4_f16', 'track': 'track_L4_f16', 'escape': 'escape_L2_f16'}
+    # Fixed low-level control action layout (BaseMission.load_act_space) that the
+    # dispatched low-level policies output: aileron, elevator, rudder, throttle, shoot.
+    LOW_LEVEL_NVEC = [17, 11, 9, 9, 2]
+    # Fixed observation window: the commander always sees the N closest opponents and
+    # friendlies, regardless of roster size (e.g. unchanged obs shape in 3v3 vs 7v7).
+    NUM_OBS_OPPS = 3
+    NUM_OBS_FRIENDS = 2
 
     def load_rewards(self):
         self.rewards = [
@@ -296,36 +311,42 @@ class HierTask(BaseMission):
         ]
 
     def load_act_space(self):
+        # High-level commander action: which low-level policy to run.
         self.action_space = spaces.Discrete(3)
-        self.hl_action_mapping = {0: 'cannon', 1: 'track', 2: 'escape'}
+        self.hl_action_mapping = self.HL_ACTION_MAPPING
 
     def load_obs_space(self):
-        self.num_rl_agents = getattr(self.config, 'num_rl_agents', 2)
-        self.num_opp_agents = getattr(self.config, 'num_opp_agents', 2)
-        self.opp_obs = self.fri_obs = 6
-        self.opp_obs_len = self.opp_obs * self.num_opp_agents
-        self.fri_obs_len = self.fri_obs * (self.num_rl_agents - 1)
-        self.own_obs_len = 8
+        # Actual roster sizes (still used for the reset consistency check). The obs
+        # window itself is fixed (see below), so the obs shape is roster-independent.
+        self.num_rl_agents = getattr(self.config, 'num_rl_agents', 3)
+        self.num_opp_agents = getattr(self.config, 'num_opp_agents', 3)
+        # Fixed observation window: at most NUM_OBS_OPPS opponents and NUM_OBS_FRIENDS
+        # friendlies (the closest ones). Extra aircraft in larger rosters are ignored;
+        # missing ones leave their block zero-padded. Per-agent block widths must match
+        # what get_obs() fills:
+        #   own: 3 location + 3 velocity + 6 orientation (cos/sin of 3 angles) = 12
+        #   per opp/fri: 3 delta-position + AO + TA + side + 4 orientation        = 10
+        self.own_obs_len = 12
+        self.opp_obs = self.fri_obs = 10
+        self.opp_obs_len = self.opp_obs * self.NUM_OBS_OPPS
+        self.fri_obs_len = self.fri_obs * self.NUM_OBS_FRIENDS
         self.observation_space = spaces.Box(
             low=-1, high=1.0,
             shape=(self.own_obs_len + self.opp_obs_len + self.fri_obs_len,),
         )
 
     def load_model(self):
-        """Load low-level pre-trained policies keyed by aircraft model and task."""
-        self.policies = self._build_low_level_policies()
+        """Instantiate the pre-trained low-level actor modules (built like StrategyModel).
 
-    def _build_low_level_policies(self):
-        """Build {model: {task: {'state_dict': ...}}} dict by loading checkpoints from runs/."""
-        # pol_dirs = ['L4_cannon_f16', 'L4_cannon_A4', 'L4_track_f16', 'L4_track_A4', 'L2_escape_f16', 'L2_escape_A4']
-        pol_dirs = ['L4_cannon_f16', 'L4_track_f16', 'L2_escape_f16']
-        policies = {'f16': {}, 'A4': {}}
-        for policy_name in pol_dirs:
-            ckpt = load_pretrained_actors(policy_name)
-            policy_type = policy_name.split('_')[1]
-            model_type = 'A4' if 'A4' in policy_name else 'f16'
-            policies[model_type][policy_type] = {'state_dict': ckpt['actors_state_dict']}
-        return policies
+        These run on the low-level obs/action layout (BaseMission.obs_len / LOW_LEVEL_NVEC),
+        which differs from this commander's own high-level obs/action space above.
+        """
+        from env.models import build_low_level_actors
+        from algorithm.networks import act_with_policies
+        self._act_with_policies = act_with_policies
+        self.policies, self.actor_args = build_low_level_actors(
+            self.obs_len, self.LOW_LEVEL_NVEC, self.POLICY_PATHS,
+        )
 
     def reset(self, env):
         assert self.num_rl_agents + self.num_opp_agents == len(env.rl_agent_ids) + len(env.opp_agent_ids), \
@@ -344,51 +365,79 @@ class HierTask(BaseMission):
 
         ego_state = np.array(agent.get_property_values(self.state_var))
         ego_cur_ned = LLA2NEU(*ego_state[:3], env.center_lon, env.center_lat, env.center_alt)
-        ego_feature = np.array([*ego_cur_ned, *(ego_state[6:9])])
+        ego_feature = np.array([*ego_cur_ned, *(ego_state[3:6])])
 
-        own_obs[0] = ego_cur_ned[0] / (self.map_size/2)
-        own_obs[1] = ego_cur_ned[1] / (self.map_size/2)
-        own_obs[2] = ego_cur_ned[2] / self.altitude_max
-        own_obs[3] = np.rad2deg(ego_state[3])/360
-        own_obs[4] = ego_state[6] / 700
-        own_obs[5] = ego_state[7] / 700
-        own_obs[6] = ego_state[8] / 700
-        own_obs[7] = ego_state[9] / 1400
+        # location
+        own_obs[0] = ego_cur_ned[0] * self.loc_scale + self.loc_offset
+        own_obs[1] = ego_cur_ned[1] * self.loc_scale + self.loc_offset
+        own_obs[2] = ego_cur_ned[2] * self.alt_scale + self.alt_offset
 
+        # velocity
+        own_obs[3] = ego_state[3] * self.vel_scale + self.vel_offset
+        own_obs[4] = ego_state[4] * self.vel_scale + self.vel_offset
+        own_obs[5] = ego_state[5] * self.vel_scale + self.vel_offset
+
+        # orientation
+        own_obs[6], own_obs[7] = np.cos(ego_state[12]), np.sin(ego_state[12])
+        own_obs[8], own_obs[9] = np.cos(ego_state[13]), np.sin(ego_state[13])
+        own_obs[10], own_obs[11] = np.cos(ego_state[14]), np.sin(ego_state[14])
+
+        # Only the NUM_OBS_OPPS closest (alive) opponents are observed; get_closest_opp
+        # returns them distance-sorted, so we stop once the window is full.
         opp_idx = 0
         for opp, _ in super().get_closest_opp(agent):
+            if opp_idx >= self.NUM_OBS_OPPS:
+                break
             if not opp.alive:
                 continue
             opp_state = np.array(opp.get_property_values(self.state_var))
             opp_cur_ned = LLA2NEU(*opp_state[:3], env.center_lon, env.center_lat, env.center_alt)
-            opp_feature = np.array([*opp_cur_ned, *(opp_state[6:9])])
-            a_a, a_t, dist, side = get_AO_TA_R(ego_feature, opp_feature, return_side=True)
+            opp_feature = np.array([*opp_cur_ned, *(opp_state[3:6])])
+
+            a_a, a_t, _, side = get_AO_TA_R(ego_feature, opp_feature, return_side=True)
+            delta_x_o, delta_y_o, delta_z_o, _, _, _ = get_separate_deltas(ego_feature, opp_feature)
 
             base = opp_idx * self.opp_obs
-            opp_obs[base+0] = opp_cur_ned[0] / (self.map_size/2)
-            opp_obs[base+1] = opp_cur_ned[1] / (self.map_size/2)
-            opp_obs[base+2] = dist / np.sqrt(self.map_size**2 + self.map_size**2 + self.altitude_delta**2)
-            opp_obs[base+3] = np.rad2deg(a_a) / 180
-            opp_obs[base+4] = np.rad2deg(a_t) / 180
+
+            opp_obs[base+0] = delta_x_o * self.loc_delta_scale + self.loc_delta_offset
+            opp_obs[base+1] = delta_y_o * self.loc_delta_scale + self.loc_delta_offset
+            opp_obs[base+2] = delta_z_o * self.loc_delta_scale + self.loc_delta_offset
+
+            opp_obs[base+3] = a_a * self.aspect_target_scale + self.aspect_target_offset
+            opp_obs[base+4] = a_t * self.aspect_target_scale + self.aspect_target_offset
             opp_obs[base+5] = side
+
+            opp_obs[base+6], opp_obs[base+7] = np.cos(opp_state[13]), np.sin(opp_state[13])
+            opp_obs[base+8], opp_obs[base+9] = np.cos(opp_state[14]), np.sin(opp_state[14])
+
             opp_idx += 1
 
+        # Only the NUM_OBS_FRIENDS closest (alive) friendlies are observed.
         fri_idx = 0
         for fri, _ in super().get_closest_friendly(agent):
+            if fri_idx >= self.NUM_OBS_FRIENDS:
+                break
             if not fri.alive:
                 continue
             fri_state = np.array(fri.get_property_values(self.state_var))
             fri_cur_ned = LLA2NEU(*fri_state[:3], env.center_lon, env.center_lat, env.center_alt)
-            fri_feature = np.array([*fri_cur_ned, *(fri_state[6:9])])
-            a_a, a_t, dist, side = get_AO_TA_R(ego_feature, fri_feature, return_side=True)
+            fri_feature = np.array([*fri_cur_ned, *(fri_state[3:6])])
+            a_a, a_t, _, side = get_AO_TA_R(ego_feature, fri_feature, return_side=True)
+            delta_x_f, delta_y_f, delta_z_f, _, _, _ = get_separate_deltas(ego_feature, fri_feature)
 
             base = fri_idx * self.fri_obs
-            fri_obs[base+0] = fri_cur_ned[0] / (self.map_size/2)
-            fri_obs[base+1] = fri_cur_ned[1] / (self.map_size/2)
-            fri_obs[base+2] = dist / np.sqrt(self.map_size**2 + self.map_size**2 + self.altitude_delta**2)
-            fri_obs[base+3] = np.rad2deg(a_a) / 180
-            fri_obs[base+4] = np.rad2deg(a_t) / 180
+
+            fri_obs[base+0] = delta_x_f * self.loc_delta_scale + self.loc_delta_offset
+            fri_obs[base+1] = delta_y_f * self.loc_delta_scale + self.loc_delta_offset
+            fri_obs[base+2] = delta_z_f * self.loc_delta_scale + self.loc_delta_offset
+
+            fri_obs[base+3] = a_a * self.aspect_target_scale + self.aspect_target_offset
+            fri_obs[base+4] = a_t * self.aspect_target_scale + self.aspect_target_offset
             fri_obs[base+5] = side
+
+            fri_obs[base+6], fri_obs[base+7] = np.cos(fri_state[13]), np.sin(fri_state[13])
+            fri_obs[base+8], fri_obs[base+9] = np.cos(fri_state[14]), np.sin(fri_state[14])
+
             fri_idx += 1
 
         assert not np.isnan(own_obs).any(), self.log.error(f"Own Observation contains NaN values: {own_obs}")
@@ -397,10 +446,17 @@ class HierTask(BaseMission):
         return np.concatenate((own_obs, opp_obs, fri_obs), axis=0, dtype=np.float32)
 
     def set_policy(self, action, agent, env):
-        policy_type = self.hl_action_mapping[action]
-        self.policy_to_use[agent.aid] = self.policies[agent.model][policy_type]
+        """Assign the low-level policy chosen by the learned high-level action.
+
+        `action` is the commander's discrete choice (0=cannon, 1=track, 2=escape).
+        This is the key difference from HierModel, which derives the choice from a
+        scripted strategy instead.
+        """
+        policy_type = self.hl_action_mapping[int(action)]
+        self.policy_to_use[agent.aid] = self.policies[policy_type]
 
     def run_action(self, agent, env):
+        # Low-level obs/control use BaseMission's layout (30-dim obs, multi-discrete action).
         ll_obs = super().get_obs(env=env, agent=agent)
         ll_action = self.get_ll_action(ll_obs, agent)
         if bool(ll_action[4]):
@@ -412,17 +468,12 @@ class HierTask(BaseMission):
 
     def get_ll_action(self, obs, agent):
         """Sample deterministic action from the chosen pre-trained low-level policy."""
-        from algorithm import networks  # lazy: avoids env -> algorithm cycle at import time
-        act_with_policies = networks.act_with_policies
-        policy = self.policy_to_use[agent.aid]
-        actors = policy.get('actors')
-        if actors is None:
-            raise RuntimeError("HierTask: pretrained low-level actors not instantiated. "
-                               "Call attach_actor_modules() with env-specific shapes before running.")
+        actors = self.policy_to_use[agent.aid]
+        assert actors is not None, f"No low-level policy selected for agent {agent.aid}"
         obs_t = torch.as_tensor(obs, dtype=torch.float32).view(1, 1, -1)
         with torch.no_grad():
-            actions, _, _, _ = act_with_policies(
-                policy['args'], actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
+            actions, _, _, _ = self._act_with_policies(
+                self.actor_args, actors, obs_t, rnn_hxs=None, masks=None, deterministic=True,
             )
         return actions[0, 0].cpu().numpy()
 
