@@ -330,8 +330,15 @@ class AircombatMARL:
     ):
         config = {"mission_config": task, **kwargs}  # kwargs carries hierarchy_level/training_level
         hierarchy_level = kwargs.get("hierarchy_level", 0)
-        env_cls = AircraftEnvHier if hierarchy_level == 2 else AircraftEnv
-        self.env = env_cls(config)
+        if hierarchy_level == 2:
+            self.env = AircraftEnvHier(
+                config,
+                inference=kwargs.get("inference", False),
+                rendering=kwargs.get("rendering", False),
+                render_view=kwargs.get("render_view", 0),
+            )
+        else:
+            self.env = AircraftEnv(config)
         if seed is not None:
             self.env.seed(seed)
         self.agent_keys = list(self.env.rl_agent_ids)

@@ -1,6 +1,8 @@
 import sys
 import os
 import glob
+
+import args
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import torch
@@ -12,8 +14,6 @@ from algorithm.networks import build_actor_critic, act_with_policies
 from env.env import AircombatMARL
 from train import process_args
 
-RENDER = True
-
 def load_checkpoint(restore_path, device):
     path = restore_path
     if os.path.isdir(path):
@@ -24,19 +24,31 @@ def load_checkpoint(restore_path, device):
     print(f"Loaded checkpoint: {path}  (trained to step {ckpt['step']})")
     return ckpt
 
-TASK = "cannon"
-LEVEL = 2
-PATH = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/cannon/L2_final/cannon_L2_MARS_rewH11_scale005_shot_range_5-10"
+HL_LEVEL = 2
+LEVEL = 1
+TASK = "hier"
+PATH = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/HIER/hier_ppo_td095_NoEntropy_aggressive"
 
-def run_inference(num_episodes=10):
-    # Reuse the exact training config so the network architecture matches the checkpoint.
+RENDER = True or HL_LEVEL == 2
+
+print("Hier Aggressive vs Opp Aggressive")
+
+def run_inference(num_episodes=1):
     args, _, device = process_args(tyro.cli(Args))
 
     args.restore_path = PATH
-    args.level = LEVEL
-    args.task = f"{TASK}/L{LEVEL}"
+    
+    if HL_LEVEL == 2:
+        args.hierarchy_level = HL_LEVEL
+        args.level = 1
+        args.task = f"{TASK}"
+    else:
+        args.hierarchy_level = 1
+        args.level = LEVEL
+        args.task = f"{TASK}/L{LEVEL}"
+
     args.env_type = "aircombat"
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape"), "rendering": RENDER}
 
     args.actor_hidden_dim = 128
     args.critic_hidden_dim = 128
@@ -60,6 +72,7 @@ def run_inference(num_episodes=10):
     L, H = args.rnn_num_layers, args.actor_hidden_dim
 
     ep_rewards, ep_lengths = [], []
+    wins = losses = 0
     for ep in range(num_episodes):
         obs_dict, _ = env.reset(seed=args.seed + ep)
         obs = np.array([obs_dict[k] for k in agent_keys], dtype=np.float32)
@@ -68,7 +81,6 @@ def run_inference(num_episodes=10):
         masks = torch.ones(1, device=device) if args.rnn else None
 
         ep_reward, ep_len, done = 0.0, 0, False
-        killed_agent = "--"
         while not done:
             obs_t = torch.as_tensor(obs, device=device).unsqueeze(0)  # (1, A, D)
             with torch.no_grad():
@@ -84,20 +96,26 @@ def run_inference(num_episodes=10):
             ep_len += 1
             done = done_dict["all"] or trunc["all"]
 
-            if RENDER:
+            if RENDER and not HL_LEVEL == 2:
                 env.env.render()
 
-            if info["opp_killed"]:
-                killed_agent = "opp"
-            if info["agent_killed"]:
-                killed_agent = "agent"
+        agents = env.env.agents
+        n_killed_opp = sum(not agents[aid].alive for aid in env.env.opp_agent_ids)
+        n_killed_agent = sum(not agents[aid].alive for aid in env.env.rl_agent_ids)
 
         ep_rewards.append(ep_reward)
         ep_lengths.append(ep_len)
-        print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d} | killed: {killed_agent}")
+        n_opp = len(env.env.opp_agent_ids)
+        n_rl = len(env.env.rl_agent_ids)
+        print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d} | killed opp: {n_killed_opp} | killed agent: {n_killed_agent}")
+        if n_killed_opp == n_opp:
+            wins += 1
+        if n_killed_agent == n_rl:
+            losses += 1
 
     print(f"\nMean reward: {np.mean(ep_rewards):.3f} ± {np.std(ep_rewards):.3f}  "
           f"| Mean length: {np.mean(ep_lengths):.1f}")
+    print(f"Mean Wins: {wins/num_episodes:.3f} | Mean Losses: {losses/num_episodes:.3f}")
     env.close()
 
 
