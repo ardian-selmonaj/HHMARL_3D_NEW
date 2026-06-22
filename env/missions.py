@@ -320,12 +320,9 @@ class HierTask(BaseMission):
         # window itself is fixed (see below), so the obs shape is roster-independent.
         self.num_rl_agents = getattr(self.config, 'num_rl_agents', 3)
         self.num_opp_agents = getattr(self.config, 'num_opp_agents', 3)
+        
         # Fixed observation window: at most NUM_OBS_OPPS opponents and NUM_OBS_FRIENDS
-        # friendlies (the closest ones). Extra aircraft in larger rosters are ignored;
-        # missing ones leave their block zero-padded. Per-agent block widths must match
-        # what get_obs() fills:
-        #   own: 3 location + 3 velocity + 6 orientation (cos/sin of 3 angles) = 12
-        #   per opp/fri: 3 delta-position + AO + TA + side + 4 orientation        = 10
+        # friendlies (the closest ones).
         self.own_obs_len = 12
         self.opp_obs = self.fri_obs = 10
         self.opp_obs_len = self.opp_obs * self.NUM_OBS_OPPS

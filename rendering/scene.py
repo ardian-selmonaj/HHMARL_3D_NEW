@@ -2,9 +2,6 @@ import datetime
 import numpy as np
 from rendering.render import Viewer, load_mesh, RenderObject, Grid, Text
 from rendering.quaternion import Quaternion
-from rendering.flightgear import FlightGearBasic #left for future
-
-### IMPORTANT: REQUIRES MODERNGL==5.10.0
 
 class Scene:
     SCALE = 1e-3
@@ -17,13 +14,10 @@ class Scene:
         self.objects_dead_pos = {}
         self._load_objects()
 
-    def render(self, viewpoint:int=0, trajectory_view:bool=False):
+    def render(self, viewpoint:int=0):
         """
         Update position and attitude in rendering scene.
-
-        Aircraft with cannon is modeled as one object, so whenever an aircraft is shooting with cannon, we replace its object.
-
-        trajectory_view: was added in an old version, but was not efficient. Will be added back. 
+        Aircraft with cannon is modeled as one object, so whenever an aircraft is shooting with cannon, we replace its object. 
         """
         self.viewer.objects.clear()
         curr_objects = [] #currently active objects
@@ -50,12 +44,6 @@ class Scene:
                 self.objects_dead_pos[aid] = [curr_object.transform.x, curr_object.transform.y, curr_object.transform.z]
             
                 curr_objects.append(curr_object)
-
-        # if getattr(self.env, 'dead_agent_ids', None):
-        #     for aid in self.env.dead_agent_ids:
-        #         curr_object = self.objects[aid][2] #dead_cone
-        #         curr_object.transform.x, curr_object.transform.y, curr_object.transform.z = self.objects_dead_pos[aid]
-        #         curr_objects.append(curr_object)
 
         # concatenate active objects and grid layer
         self.viewer.objects.extend(curr_objects + [self.grid] + [self.text])

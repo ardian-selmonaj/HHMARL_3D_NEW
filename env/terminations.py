@@ -1,9 +1,7 @@
 import logging
 import math
-import numpy as np
 from abc import ABC, abstractmethod
 from env.catalog import Catalog as c
-from env.utils import get_AO_TA_R, get2d_AO_TA_R, LLA2NEU
 
 
 class BaseTerminationCondition(ABC):

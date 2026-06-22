@@ -4,7 +4,7 @@ aircraft:
   B1:
     mission: task_cannon
   R2:
-    mission: model_SPManeuver #task_cannon
+    mission: model_SPManeuver
 
 sp_policy_name: cannon_L2_f16
 

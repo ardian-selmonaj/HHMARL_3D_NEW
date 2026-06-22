@@ -17,8 +17,6 @@ def schedule_field(default=None):
 
 @dataclass
 class Args:
-    env_type: str = "aircombat"
-    """ Env. """
     task: str = "track"
     """ Task of the environment"""
     run_name: str = field(default_factory=default_run_name)
@@ -27,8 +25,6 @@ class Args:
     """ level of task. """
     hierarchy_level: int = 1
     """ Hierarchical Level (1 = low-level control training, 2 = high-level commander training) """
-    agent_ids: bool = False
-    """ Include id (one-hot vector) at the agent of the observations"""
     policy_mask: bool = True
     """ If True, mask dead agents out of the actor loss (active masks on policy) """
     value_mask: bool = True
@@ -47,18 +43,17 @@ class Args:
     """ Number of hidden layers of critic network"""
     optimizer: str = "Adam"
     """ The optimizer"""
-    learning_rate_actor: float = 5e-4
+    learning_rate_actor: float = 3e-4
     """ Learning rate for the actor"""
-    learning_rate_critic: float = 5e-4
+    learning_rate_critic: float = 3e-4
     """ Learning rate for the critic"""
     lr_decay: list[list[float]] | None = schedule_field()
-    # lr_decay: list[list[float]] | None = schedule_field([[3e6, 4e-4], [6e6, 2e-4]])
     """ Optional decay schedule in the form [[t0, l0], [t1, l1]] """
     total_timesteps: int = 5000000
     """ Total steps in the environment during training"""
     gamma: float = 0.99
     """ Discount factor"""
-    td_lambda: float = 0.95
+    td_lambda: float = 0.92
     """ TD(λ) discount factor"""
     normalize_advantage: bool = True
     """ Normalize the advantage if True"""
@@ -66,11 +61,11 @@ class Args:
     """ If True, use running EMA normalization (ValueNorm) for value targets """
     normalize_popart: bool = False
     """ If True, use PopArt adaptive normalization (replaces critic output layer); mutually exclusive with normalize_value """
-    num_envs: int = 10
+    num_envs: int = 20
     """ Number of parallel environment workers collecting each rollout"""
-    minibatch_size: int = 300
+    minibatch_size: int = 5000
     """ Number of samples in each SGD minibatch"""
-    batch_size: int = 3000
+    batch_size: int = 10000
     """ Lower bound for the full rollout batch, rounded up for clean minibatch/env splits"""
     train_epochs: int = 10
     """ Number of training epochs"""
@@ -84,7 +79,7 @@ class Args:
     """ Coefficient applied to the critic loss """
     huber_coef: float = 10.0
     """ If >0, use Huber loss with this delta for the critic; ≤0 uses plain MSE """
-    use_ReLU: bool = False
+    use_ReLU: bool = True
     """ If True use ReLU activations in actor/critic, else Tanh """
     normalize_input: bool = True
     """ If True, prepend LayerNorm to actor and critic inputs """
@@ -94,8 +89,7 @@ class Args:
     """ If True compute GAE advantages; False uses plain discounted returns (td_lambda=1) """
     entropy_coef: float = 0.01
     """ Entropy coefficient """
-    entropy_decay: list[list[float]] | None = schedule_field([[0, 0.1], [3e6, 0]])
-    # entropy_decay: list[list[float]] | None = schedule_field()
+    entropy_decay: list[list[float]] | None = schedule_field()
     """ Optional decay schedule in the form [[t0, l0], [t1, l1]] """
     lr_decay_schedule: tuple | None = field(init=False, default=None)
     """ Validated decay schedule derived from lr_decay; set by custom_args """
@@ -123,9 +117,9 @@ class Args:
     """ If True, insert a cross-agent MultiHeadAttention layer in the actor (and IPPO critic) in place of the GRU. Mutually exclusive with rnn. Requires shared_policies=True. Centralized critic stays plain MLP. """
     attention_heads: int = 2
     """ Number of attention heads. Must divide actor_hidden_dim (and critic_hidden_dim when used). """
-    avail_actions: bool = True
+    avail_actions: bool = False
     """ If True, collect and mask with available actions; if False, skip entirely (e.g. GRF where all actions are always available) """
-    torch_compile: bool = True
+    torch_compile: bool = False
     """ If True, apply torch.compile to actors' .act and critic.forward (dynamic shapes). Disable if compilation regresses on your hardware. """
     restore_path: str | None = None
     """ Path to a checkpoint file or directory (loads the latest checkpoint) to resume training. None disables restore. """

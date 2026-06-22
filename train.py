@@ -9,58 +9,34 @@ from tqdm import tqdm
 from args import Args
 from algorithm.learner import Learner
 from algorithm.utils import validate_decay_schedule, get_decayed_value, Logger, Workers
+from env.utils import parse_config
 
 """
 The main file for running experiments on AircraftEnv.
 """
 
-
-HL_LEVEL = 2
-LEVEL = 1
-TASK = "hier"
-RUN = "mars_td091_NoEntropy_aggressive"
-
 def entropy_decay_schedule(args):
-    if args.level >= 3 and args.task.startswith("track") or args.level >= 3 and args.task.startswith("cannon") or args.level >= 2 and args.task.startswith("escape"):
+    if args.level >= 3 and args.task.startswith("track") or args.level >= 3 and args.task.startswith("cannon") or args.level >= 2 and args.task.startswith("escape") or args.hierarchy_level == 2:
         args.entropy_coef = 0
         return None
     else:
-        # return [[30000000 * (args.level-1), 0.07], [30000000 * (args.level-1) + 2e6, 0]]
-        args.entropy_coef = 0
-        return None
+        return [[30000000 * (args.level-1), 0.07], [30000000 * (args.level-1) + 2e6, 0]]
 
 def process_args(args):
-    # args.restore_path = "/home/sardian/HHMARL_3D_NEW/runs/escape_L1_f16"
-
-    if HL_LEVEL == 2:
-        args.num_envs = 10
+    if args.hierarchy_level == 2:
         args.batch_size = 5000
         args.minibatch_size = 1000
         args.level = 1
-        args.hierarchy_level = HL_LEVEL
         args.task = "hier"
+        args.total_timesteps = 3000000
     else:
-        args.num_envs = 20
         args.batch_size = 10000
         args.minibatch_size = 5000
-        args.level = LEVEL
         args.hierarchy_level = 1
-        args.task = f"{TASK}/L{args.level}"
+        args.task = f"{args.task}/L{args.level}"
+        args.total_timesteps = 30000000 * args.level
 
-    args.train_epochs = 10
-    args.learning_rate_actor = 3e-4
-    args.learning_rate_critic = 3e-4
-    args.rnn = False
-    args.attention = False
-
-    args.algorithm = "mars"
-    args.use_ReLU = True
-    args.td_lambda = 0.91 #0.92
-    args.total_timesteps = 30000000 * args.level
     args.entropy_decay = entropy_decay_schedule(args)
-
-    args.avail_actions = False
-    args.torch_compile = False
     args.cuda_id = 0
 
     batch_alignment = math.lcm(args.num_envs, args.minibatch_size)
@@ -81,8 +57,7 @@ def process_args(args):
     torch.backends.cudnn.benchmark = not args.torch_deterministic
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
-    args.run_name = f"{RUN}"
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape")}
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), "rendering": False}
     return args, kwargs, device
 
 
@@ -109,7 +84,8 @@ if __name__ == "__main__":
     workers = Workers(args, kwargs)
     learner = Learner(args, device, workers)
     task_name = args.task.replace("/", "_")
-    logger = Logger(log_dir=f"runs/{task_name}_{args.run_name}", args=args)
+    model = next(iter(parse_config(args.task).aircraft.values())).get("model", "f16")
+    logger = Logger(log_dir=f"runs/{task_name}_{model}_{args.run_name}", args=args)
 
     ep_rewards = []
     ep_lengths = []

@@ -337,13 +337,16 @@ def build_actor_critic(args, obs_dim, action_space, state_dim, num_agents, devic
     # Critic always consumes a state vector. centralized_critic=True -> shared global state
     # per env; centralized_critic=False -> per-agent individual state. Input width is
     # state_dim either way (per-agent dim equals shared dim by construction).
+
     use_attention = getattr(args, "attention", False)
     if use_attention:
         assert not args.rnn, "attention and rnn are mutually exclusive."
         assert args.shared_policies, "attention requires shared_policies=True (one actor processes the agent set jointly)."
+
     # The critic only gets attention when its input has an agent axis (IPPO state critic).
     # With centralized_critic=True the critic consumes a single global state per env, so MHA
     # over agents has nothing to attend to — fall back to plain MLP for the critic.
+    
     critic_use_attention = use_attention and not args.centralized_critic
     attention_heads = getattr(args, "attention_heads", 4)
 

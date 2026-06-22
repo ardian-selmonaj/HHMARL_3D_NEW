@@ -225,9 +225,7 @@ class AircraftEnvHier(AircraftEnv):
 
     One environment step is a *high-level* step: the commander assigns a low-level
     policy (cannon/track/escape) to each aircraft, and that policy is rolled out for
-    `hl_sim_steps` low-level steps. Rewards accumulate over the inner steps. Agents
-    are never removed from `self.agents`; death is tracked via `agent.alive`, so obs
-    and state keep a fixed shape across the episode (required by the rollout buffer).
+    `hl_sim_steps` low-level steps. Rewards accumulate over the inner steps.
     """
 
     def __init__(self, config: dict, inference: bool = False, rendering: bool = False, render_view: int = 0):
@@ -324,7 +322,6 @@ class AircombatMARL:
     def __init__(
         self,
         task=None,
-        agent_ids=False,
         seed=None,
         **kwargs,
     ):
@@ -344,7 +341,7 @@ class AircombatMARL:
         self.agent_keys = list(self.env.rl_agent_ids)
         self.first_agent = self.agent_keys[0]
         self.n_agents = len(self.agent_keys)
-        self.agent_ids = agent_ids
+        
         # The commander uses spaces.Discrete; low-level tasks use MultiDiscrete.
         self._act_space = self.env.action_space[self.first_agent]
         self._is_discrete = isinstance(self._act_space, gym.spaces.Discrete)

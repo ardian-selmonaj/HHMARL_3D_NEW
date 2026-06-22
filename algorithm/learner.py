@@ -281,10 +281,6 @@ class Learner:
             args, obs_dim, action_space, state_dim, num_agents, device
         )
 
-        # torch.compile: speed up critic.forward and actor.act. dynamic=True handles variable
-        # batch shapes (rollout: E*A; training: L*N) without recompilation. Set args.torch_compile=False
-        # to disable if compilation interacts badly with a particular PyTorch / driver combo.
-        
         # dynamic=True is conservative; if shapes are actually fully static after the first batch you could try dynamic=False for slightly better optimization,
         # but expect recompiles when active_envs < num_envs on the final partial batch.
         if torch.cuda.is_available() and getattr(args, "torch_compile", True):
@@ -461,11 +457,6 @@ class Learner:
         transitions_remaining = min(args.batch_size, args.total_timesteps - step)
 
         self.rb.reset()
-        # Track how many rollout steps actually got written this batch. On the final
-        # iteration, transitions_remaining < batch_size so we write fewer than
-        # num_steps rows; the tail of every (T, E, ...) buffer is left over from the
-        # previous rollout. _rnn_minibatch_iter must clamp to this count or it
-        # would gather garbage chunks from those stale rows.
         iteration_rewards = []
         ep_rewards = []
         ep_lengths = []
@@ -533,10 +524,6 @@ class Learner:
             for env_idx in range(active_envs):
                 self.workers[env_idx].send(("step", actions_np[env_idx]))
             contents = [self.workers[env_idx].recv() for env_idx in range(active_envs)]
-
-            # NOTE: defer the current_rnn_actor overwrite until AFTER add_step. rnn_hxs_a still
-            # views h_t at this point; passing it to add_step copies h_t into the buffer, then
-            # we overwrite current_rnn_actor with h_{t+1}. No clone needed.
 
             # Compute GAE bootstrap V(next_state) for truncated transitions *before* the
             # env loop overwrites current_state/obs/hxs via reset. Stored raw (pre-denorm)
@@ -614,13 +601,11 @@ class Learner:
                 self._current_alive_masks[done_idx_np] = 1.0
 
             # Episode-completion bookkeeping (small loop only over done envs)
-            log_infos = args.env_type.startswith("smac") or args.env_type in ("grf", "aircombat")
             for env_idx in done_env_indices:
                 ep_rewards.append(float(self._current_ep_rewards[env_idx]))
                 ep_lengths.append(int(self._current_ep_lengths[env_idx]))
                 iteration_rewards.append(float(self._current_ep_rewards[env_idx]))
-                if log_infos:
-                    ep_stats.append(contents[env_idx]["infos"])
+                ep_stats.append(contents[env_idx]["infos"])
             num_new_episodes += len(done_env_indices)
             if done_env_indices:
                 self._current_ep_rewards[done_idx_np] = 0.0
@@ -628,7 +613,7 @@ class Learner:
 
             # State updates for non-terminal envs: write each env's next_* into a
             # pre-allocated row of the scratch buffer, then a single fancy-indexed
-            # assign into current_*. Avoids per-step np.stack allocations.
+            # assign into current_*.
             n_not_done = len(not_done_idx_np)
             if n_not_done > 0:
                 next_obs_view   = self._next_obs_buf[:n_not_done]
@@ -693,9 +678,6 @@ class Learner:
             lam = args.td_lambda if args.use_gae else 1.0
 
             # --- Compute per-agent next_values (E, A) for bootstrap ---
-            # On the final partial batch, envs beyond the active count have stale
-            # current_states. Limit the critic forward to actually-written envs;
-            # inactive slots in next_values stay zero and are masked out in GAE anyway.
             E_active = int(batch.batch_time_mask.any(dim=0).sum())
             next_values = torch.zeros(E, A, device=device)
             if args.centralized_critic:
@@ -749,9 +731,7 @@ class Learner:
             idx = last_t.view(1, E, 1).expand(1, E, A)
             next_val.scatter_(0, idx, raw_next_values.unsqueeze(0))
 
-            # Truncation bootstrap: at time-limit steps, next_val stored from raw_values[t+1]
-            # (or raw_next_values at last_t) points to V(reset state), not V(final state).
-            # Override with the terminal value captured before reset in collect_rollout.
+            # Truncation bootstrap
             trunc_mask = batch.batch_truncated.bool().unsqueeze(-1).expand_as(next_val)  # (T, E, A)
             next_val = torch.where(trunc_mask, raw_terminal_values, next_val)
 
@@ -765,8 +745,7 @@ class Learner:
                 advantages[t] = gae
             return_lambda = advantages + raw_values                # (T, E, A)
 
-        # Normalize: stats from alive agents at valid steps (matching onpolicy active_masks exclusion),
-        # applied to all valid positions (dead-agent advantages are masked out in the loss anyway).
+        # Normalize
         time_expanded = batch.batch_time_mask.unsqueeze(-1).expand_as(advantages)
         if args.normalize_advantage:
             active_valid = time_expanded & batch.batch_active_mask.bool()
@@ -793,8 +772,7 @@ class Learner:
                 rnn_states_critic=batch.rnn_states_critic,
             )
 
-        # FlatBatch (non-RNN): keep the agent axis so each policy update uses its
-        # own return/advantage, even when the critic observes centralized state.
+        # FlatBatch (non-RNN)
         tm = batch.batch_time_mask
         return FlatBatch(
             obs=batch.batch_obs[tm],
@@ -1141,10 +1119,6 @@ class Learner:
                 "env_indices": E_idx,    # (N,) GPU tensor — chunk's env id
                 "time_indices": T_idx,   # (N,) GPU tensor — chunk start step (multiple of L)
             }
-
-    # ------------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------------
 
     def train(self, data, entropy_coef: float) -> TrainMetrics:
         args = self.args

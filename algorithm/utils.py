@@ -38,7 +38,6 @@ class Logger:
         self.writer = SummaryWriter(log_dir)
         self.log_dir = log_dir
         os.makedirs(log_dir, exist_ok=True)
-        self.env_type = args.env_type
         self.log_every_step = args.log_every_step
         self.writer.add_text(
             "hyperparameters",
@@ -67,19 +66,7 @@ class Logger:
         self.writer.add_scalar("rollout/mean_step_reward", mean_step_reward, step)
         self.writer.add_scalar("rollout/weighted_step_reward", weighted_step_reward, step)
         self.writer.add_scalar("rollout/num_episodes", num_episodes, step)
-        if self.env_type.startswith("smac") and ep_stats:
-            self.writer.add_scalar(
-                "rollout/battle_won",
-                np.mean([info.get("battle_won", False) for info in ep_stats]),
-                step,
-            )
-        if self.env_type == "grf" and ep_stats:
-            self.writer.add_scalar(
-                "rollout/win_rate",
-                np.mean([1 if info.get("score_reward", 0) > 0 else 0 for info in ep_stats]),
-                step,
-            )
-        if self.env_type == "aircombat" and ep_stats:
+        if ep_stats:
             for key in ("opp_killed", "opp_crashed", "agent_killed", "agent_crashed"):
                 self.writer.add_scalar(
                     f"rollout/{key}",
@@ -142,13 +129,11 @@ class CloudpickleWrapper:
 
 def _env_worker(
     worker,
-    env_type,
     task,
-    agent_ids,
     env_kwargs,
     use_avail=True,
 ):
-    env = AircombatMARL(task=task, agent_ids=agent_ids, **env_kwargs)
+    env = AircombatMARL(task=task, **env_kwargs)
     agent_keys = env.agent_keys
 
     def _obs_to_array(obs_dict):
@@ -197,6 +182,7 @@ def _env_worker(
             done = done_dict["all"]
             truncated = truncated_dict["all"]
             agent_dones = np.array([done_dict[k] for k in agent_keys], dtype=np.bool_)
+            
             # next_state: skip only for true terminal (done without truncation) — env resets
             # anyway and the value is never used for GAE bootstrap or current-state update.
             next_state = None if (done and not truncated) else env.get_state()
@@ -231,9 +217,7 @@ class Workers:
                 target=_env_worker,
                 args=(
                     env_ends[i],
-                    args.env_type,
                     args.task,
-                    args.agent_ids,
                     {
                         **kwargs,
                         "seed": args.seed + i * 1000,

@@ -24,31 +24,19 @@ def load_checkpoint(restore_path, device):
     print(f"Loaded checkpoint: {path}  (trained to step {ckpt['step']})")
     return ckpt
 
-HL_LEVEL = 2
-LEVEL = 1
-TASK = "hier"
-PATH = "/home/ardian/projects/HHMARL_3D_NEW/runs_verify/HIER/hier_ppo_td095_NoEntropy_aggressive"
+RENDER = True
 
-RENDER = True or HL_LEVEL == 2
-
-print("Hier Aggressive vs Opp Aggressive")
-
-def run_inference(num_episodes=1):
+def run_inference(num_episodes=500):
     args, _, device = process_args(tyro.cli(Args))
-
-    args.restore_path = PATH
     
-    if HL_LEVEL == 2:
-        args.hierarchy_level = HL_LEVEL
+    if args.hierarchy_level == 2:
         args.level = 1
-        args.task = f"{TASK}"
+        args.task = "hier"
     else:
         args.hierarchy_level = 1
-        args.level = LEVEL
-        args.task = f"{TASK}/L{LEVEL}"
+        args.task = f"{args.task}/L{args.level}"
 
-    args.env_type = "aircombat"
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(TASK == "track" or TASK == "escape"), "rendering": RENDER}
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), "rendering": RENDER}
 
     args.actor_hidden_dim = 128
     args.critic_hidden_dim = 128
@@ -59,7 +47,7 @@ def run_inference(num_episodes=1):
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 
-    env = AircombatMARL(task=args.task, agent_ids=args.agent_ids, **kwargs)
+    env = AircombatMARL(task=args.task, **kwargs)
     actors, _ = build_actor_critic(
         args, env.get_obs_size(), env.get_action_space(),
         env.get_state_size(), env.n_agents, device,
@@ -96,7 +84,7 @@ def run_inference(num_episodes=1):
             ep_len += 1
             done = done_dict["all"] or trunc["all"]
 
-            if RENDER and not HL_LEVEL == 2:
+            if RENDER and not args.hierarchy_level == 2:
                 env.env.render()
 
         agents = env.env.agents

@@ -183,8 +183,9 @@ class HeadingReward(BaseRewardFunction):
             roll_r = math.exp(-((a_r/roll_scale)**4))
             roll_rr = math.exp(-((a_rr/roll_rr_scale)**2))
             pitch_rr = math.exp(-((a_pr/pitch_rr_scale)**2))
+            
             # reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2)
-            reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2) - 0.2*head_a_opp*head_a*(0.5 * delta_loc(delta_x) + 0.5 * delta_loc(delta_y))
+            reward = h*(d + v + 0.2*(roll_r-0.5)*2 + 0.6*(roll_rr-0.5)*2 + 0.2*(pitch_rr-0.5)*2) - 0.1*head_a_opp*head_a*(0.5 * delta_loc(delta_x) + 0.5 * delta_loc(delta_y))
 
         elif self.opposite:
             head_scale = 40
@@ -279,38 +280,3 @@ class FleeReward(BaseRewardFunction):
 
         reward = a + b + v
         return self._process(reward, agent_id)
-
-
-# class RollPitch(BaseRewardFunction):
-#     """Punish abrupt changes in roll/pitch action commands."""
-
-#     def __init__(self, config):
-#         super().__init__(config)
-#         self.prev_roll = {}
-#         self.prev_pitch = {}
-#         self.max_delta_roll = 6
-#         self.max_delta_pitch = 3
-
-#     def reset(self, task, env):
-#         self.prev_pitch.clear()
-#         self.prev_roll.clear()
-#         super().reset(task, env)
-
-#     def get_reward(self, task, env, agent_id, action=None):
-#         rew = 0
-#         current_roll = action[agent_id][0]
-#         current_pitch = action[agent_id][1]
-
-#         if env.steps <= 1 or agent_id not in self.prev_roll:
-#             self.prev_roll[agent_id] = current_roll
-#             self.prev_pitch[agent_id] = current_pitch
-#             return self._process(rew, agent_id)
-
-#         if abs(current_roll - self.prev_roll[agent_id]) > self.max_delta_roll:
-#             rew -= 0.1
-#         if abs(current_pitch - self.prev_pitch[agent_id]) > self.max_delta_pitch:
-#             rew -= 0.1
-
-#         self.prev_roll[agent_id] = current_roll
-#         self.prev_pitch[agent_id] = current_pitch
-#         return self._process(rew, agent_id)
