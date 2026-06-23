@@ -210,10 +210,10 @@ class AircraftEnv(gym.Env):
             agent.close()
         self.agents.clear()
 
-    def render(self, viewpoint=0, trajectory_view=False):
+    def render(self, viewpoint=0):
         if not self.scene:
             self.scene = Scene(self)
-        self.scene.render(viewpoint, trajectory_view)
+        self.scene.render(viewpoint)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)

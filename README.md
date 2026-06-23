@@ -1,9 +1,12 @@
 # Hierarchical Multi-Agent Reinforcement Learning for simulated Air Combat
 3D Heterogeneous Hierarchical MARL for realistic Air Combat Simulation. This is the official implementation of [this paper](https://arxiv.org/pdf/2510.11474).
 
+<p align="center">
+  <img src="rendering/rendering_pygame.png" alt="PyGame rendering" width="49%">
+  <img src="rendering/rendering_skybolt.png" alt="Skybolt rendering" width="49.3%">
+</p>
 
 ## Learning Procedure
-
 Training proceeds in two stages on top of a JSBSim-based flight dynamics environment:
 
 1. **Low-level curriculum.** Single skills (`cannon`, `track`, `escape`) are learned with a difficulty curriculum (levels `L1`–`L4`). Each level increases opponent strength and initial-state randomization, restoring the policy from the previous level. The agents output low-level flight controls (`hierarchy_level=1`).
@@ -13,47 +16,39 @@ Policies are trained with on-policy MARL (shared actor, centralized critic). Whi
 
 
 ## Running Instructions
-
 All settings are defined in [`args.py`](args.py) and passed as command-line flags. A few experiment-specific overrides (batch sizes, learning rates, algorithm) are applied in `process_args` of [`train.py`](train.py).
 
 ### Low-level curriculum training
-
 Set `hierarchy_level=1`, pick the skill (`task`) and the curriculum `level`:
-
 ```bash
 python train.py --task track --level 1 --hierarchy_level 1
 ```
-
 Curriculum learning is **manual**: train each task through every level in order, and for each new level restore the checkpoint of the previous level yourself via `--restore_path`:
-
 ```bash
 python train.py --task track --level 2 --hierarchy_level 1 --restore_path runs/track_L1_f16_<run_name>
 python train.py --task track --level 3 --hierarchy_level 1 --restore_path runs/track_L2_f16_<run_name>
-# ... and so on for L4, then repeat for cannon and escape
+# repeat for task cannon and escape.
 ```
+**NOTE:** At the highest difficulty of each skill (L4 `track`, L4 `cannon`, L2 `escape`), opponents follow a *mixed* strategy drawn from the pre-trained lower-level policies. You must therefore train the preceding levels first, i.e. L3 `track`, L3 `cannon`, and L1 `escape`, before starting these. See also the *Key arguments* below.
 
 ### High-level hierarchical training
-
 Set `hierarchy_level=2` and `task=hier`:
-
 ```bash
 python train.py --task hier --hierarchy_level 2
 ```
+The commander uses the pre-trained low-level policies of level 4. The opponent strategy is configured in [`env/configs/hier.yaml`](env/configs/hier.yaml) (`opp_hier_strategy: mixed | aggressive | random`).
 
-The commander uses the pre-trained low-level policies. The opponent strategy is configured in [`env/configs/hier.yaml`](env/configs/hier.yaml) (`opp_hier_strategy: mixed | aggressive | random`).
-
-### Inference / testing
-
+### Inference
 Set the run directory and matching task/level arguments, then run:
-
 ```bash
 python test.py
 ```
+This evaluates over many episodes and reports mean win/loss rates. 
 
-This evaluates over many episodes and reports mean win/loss rates. The scene is rendered in PyGame by default, but can be disabled by setting the variable `RENDER` in [`test.py`](test.py) to false. 
+### Rendering
+The scene is rendered in PyGame by default (left image). Rendering can be disabled by setting `RENDER` in [`test.py`](test.py) to `False`. The more realistic renderer (right image) is based on [Skybolt](https://github.com/Prograda/Skybolt/tree/master) and currently under development.
 
 ### Key arguments
-
 Besides others, the most important configuration arguments of [`args.py`](args.py) are the following:
 
 | Argument | Meaning | Accepted values |
@@ -68,7 +63,7 @@ Besides others, the most important configuration arguments of [`args.py`](args.p
 
 **Heterogeneous setups:** the aircraft model is set per aircraft in the YAML configs ([`env/configs/`](env/configs/)). Set `model: f16` or `model: a4` to mix aircraft types within a team or across teams. The model is also folded into the run/log name (`runs/<task>_<model>_<run_name>/`).
 
-**Base actors** a pre-trained base actor, i.e., an aircombat agent trained to pursue a fixed goal, is taken from the [LAG environment](https://github.com/liuqh16/LAG/tree/master), that serves as our scripted agent during levels L1 and L2. The [`catalog.py`](env/catalog.py) containing JSBSim properties is also borrowed from LAG. 
+**Base actors:** a pre-trained base actor, i.e., an aircombat agent trained to pursue a fixed goal, is taken from the [LAG environment](https://github.com/liuqh16/LAG/tree/master), that serves as our scripted agent during levels L1 and L2. The [`catalog.py`](env/catalog.py) containing JSBSim properties is also borrowed from LAG. 
 
 
 ## Cite

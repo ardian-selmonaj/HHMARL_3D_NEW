@@ -18,7 +18,7 @@ def main():
     done = False
 
     while not done:
-        env.env.render(viewpoint=0, trajectory_view=False)
+        env.env.render(viewpoint=0)
         _, _, terminated, truncated, _ = env.step(act)
         done = terminated["all"] or truncated["all"]
 

@@ -36,14 +36,8 @@ def run_inference(num_episodes=500):
         args.hierarchy_level = 1
         args.task = f"{args.task}/L{args.level}"
 
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), "rendering": RENDER}
-
-    args.actor_hidden_dim = 128
-    args.critic_hidden_dim = 128
-    args.rnn = False
-    args.use_ReLU = True
-    args.avail_actions = False
-    args.torch_compile = False
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), 
+              "rendering": RENDER, "render_view": 0}
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 
