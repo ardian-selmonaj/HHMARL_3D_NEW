@@ -1,14 +1,8 @@
-import sys
 import os
 import glob
-
-import args
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import torch
 import tyro
 import numpy as np
-
 from args import Args
 from algorithm.networks import build_actor_critic, act_with_policies
 from env.env import AircombatMARL
