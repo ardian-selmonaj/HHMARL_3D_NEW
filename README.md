@@ -1,5 +1,5 @@
 # Hierarchical Multi-Agent Reinforcement Learning for simulated Air Combat
-3D Heterogeneous Hierarchical MARL for realistic Air Combat Simulation. This is the official implementation of [this paper](https://arxiv.org/pdf/2510.11474).
+3D Heterogeneous Hierarchical MARL for realistic Air Combat Simulation. This is the official implementation of [this paper](https://arxiv.org/pdf/2510.11474). This project is a continuation of the 2D Hierarchical MARL Air Combat model found [here](https://github.com/IDSIA/hhmarl_2D).
 
 <p align="center">
   <img src="rendering/rendering_pygame.png" alt="PyGame rendering" width="49%">
