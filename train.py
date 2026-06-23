@@ -84,8 +84,15 @@ if __name__ == "__main__":
     workers = Workers(args, kwargs)
     learner = Learner(args, device, workers)
     task_name = args.task.replace("/", "_")
-    model = next(iter(parse_config(args.task).aircraft.values())).get("model", "f16")
-    logger = Logger(log_dir=f"runs/{task_name}_{model}_{args.run_name}", args=args)
+    # Heterogeneous hierarchical combat yields model name "f16_a4", otherwise the model name is just the model of the aircraft in the task.
+    models = list(dict.fromkeys(
+        cfg.get("model", "f16")
+        for cfg in parse_config(args.task).aircraft.values()
+        if str(cfg.get("mission", "")).startswith("task")
+    ))
+    model = "_".join(models) if models else "f16"
+    log_name = f"runs/{task_name}_{model}_{args.run_name}" if args.run_name else f"runs/{task_name}_{model}"
+    logger = Logger(log_dir=log_name, args=args)
 
     ep_rewards = []
     ep_lengths = []

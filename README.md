@@ -21,12 +21,12 @@ All settings are defined in [`args.py`](args.py) and passed as command-line flag
 ### Low-level curriculum training
 Set `hierarchy_level=1`, pick the skill (`task`) and the curriculum `level`:
 ```bash
-python train.py --task track --level 1 --hierarchy_level 1
+python train.py --task track --level 1
 ```
 Curriculum learning is **manual**: train each task through every level in order, and for each new level restore the checkpoint of the previous level yourself via `--restore_path`:
 ```bash
-python train.py --task track --level 2 --hierarchy_level 1 --restore_path runs/track_L1_f16_<run_name>
-python train.py --task track --level 3 --hierarchy_level 1 --restore_path runs/track_L2_f16_<run_name>
+python train.py --task track --level 2 --restore_path runs/track_L1_f16_<run_name>
+python train.py --task track --level 3 --restore_path runs/track_L2_f16_<run_name>
 # repeat for task cannon and escape.
 ```
 **NOTE:** At the highest difficulty of each skill (L4 `track`, L4 `cannon`, L2 `escape`), opponents follow a *mixed* strategy drawn from the pre-trained lower-level policies. You must therefore train the preceding levels first, i.e. L3 `track`, L3 `cannon`, and L1 `escape`, before starting these. See also the *Key arguments* below.
@@ -61,7 +61,7 @@ Besides others, the most important configuration arguments of [`args.py`](args.p
 | `attention` | add a cross-agent attention layer to the actor (mutually exclusive with `rnn`) | `true`/`false` |
 | `cuda` / `cuda_id` | GPU usage / device index | `true`/`false`, integer |
 
-**Heterogeneous setups:** the aircraft model is set per aircraft in the YAML configs ([`env/configs/`](env/configs/)). Set `model: f16` or `model: a4` to mix aircraft types within a team or across teams. The model is also folded into the run/log name (`runs/<task>_<model>_<run_name>/`).
+**Heterogeneous setups:** the aircraft model is set per aircraft in the YAML configs ([`env/configs/`](env/configs/)). Set `model: f16` or `model: A4` (uppercase A, otherwise error) to mix aircraft types within a team or across teams. The model is also folded into the run/log name (`runs/<task>_<model>_<run_name>/`).
 
 **Base actors:** a pre-trained base actor, i.e., an aircombat agent trained to pursue a fixed goal, is taken from the [LAG environment](https://github.com/liuqh16/LAG/tree/master), that serves as our scripted agent during levels L1 and L2. The [`catalog.py`](env/catalog.py) containing JSBSim properties is also borrowed from LAG. 
 

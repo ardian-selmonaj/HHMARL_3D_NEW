@@ -4,7 +4,7 @@ from datetime import datetime
 
 def default_run_name():
     now = datetime.now()
-    return f"{now.year % 100}-{now.month}-{now.day}_{now.hour:02d}-{now.minute:02d}"
+    return f"_{now.year % 100}.{now.month}.{now.day}-{now.hour:02d}:{now.minute:02d}"
 
 
 def schedule_field(default=None):
@@ -19,7 +19,7 @@ def schedule_field(default=None):
 class Args:
     task: str = "track"
     """ Task of the environment"""
-    run_name: str = field(default_factory=default_run_name)
+    run_name: str = field(default="") #field(default_factory=default_run_name)
     """ Run name used by training logs and progress output """
     level: int = 1
     """ level of task. """

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from gymnasium import spaces
 
 from env.catalog import Catalog as c
-from env.utils import get_AO_TA_R, LLA2NEU, get_separate_deltas
+from env.utils import get_AO_TA_R, LLA2NEU, get_separate_deltas, get_root_dir
 from env.terminations import ExtremeState, Overload, LowAltitude, DeadAgent
 from env.rewards import (
     EventDrivenReward,
@@ -294,7 +294,9 @@ class HierTask(BaseMission):
     """
 
     HL_ACTION_MAPPING = {0: 'cannon', 1: 'track', 2: 'escape'}
-    # Low-level pre-trained policies, keyed by task -> runs/<dir>.
+    # Low-level pre-trained policies, keyed by task -> runs/<dir>. These are the
+    # default f16 policies; for a non-f16 aircraft model the trailing "_f16" token
+    # is swapped for the model name (e.g. cannon_L4_A4) in _policy_paths_for_model.
     POLICY_PATHS = {'cannon': 'cannon_L4_f16', 'track': 'track_L4_f16', 'escape': 'escape_L2_f16'}
     # Fixed low-level control action layout (BaseMission.load_act_space) that the
     # dispatched low-level policies output: aileron, elevator, rudder, throttle, shoot.
@@ -332,18 +334,76 @@ class HierTask(BaseMission):
             shape=(self.own_obs_len + self.opp_obs_len + self.fri_obs_len,),
         )
 
+    def _policy_paths_for_model(self, model):
+        """Resolve the low-level policy run dirs for a given aircraft model.
+
+        The default POLICY_PATHS target f16. For any other model (e.g. A4) the
+        trailing "_f16" token is swapped for the model name, yielding e.g.
+        cannon_L4_A4 / track_L4_A4 / escape_L2_A4.
+        """
+        if model == 'f16':
+            return dict(self.POLICY_PATHS)
+        return {
+            task: path[:-len('_f16')] + f'_{model}' if path.endswith('_f16') else f'{path}_{model}'
+            for task, path in self.POLICY_PATHS.items()
+        }
+
+    def _validate_model_policies(self, model, policy_paths):
+        """Ensure every pre-trained policy for a non-f16 model exists, else abort.
+
+        The default f16 policies are assumed present (validation happens at load
+        time anyway). For heterogeneous combat where an aircraft requests a
+        different model in hier.yaml, the matching <task>_L*_<model> runs must
+        have been pre-trained; if any is missing we raise so training aborts with
+        a clear message instead of silently driving an A4 with an f16 policy.
+        """
+        runs_dir = os.path.join(get_root_dir(), 'runs')
+        missing = [
+            name for name in policy_paths.values()
+            if not os.path.isdir(os.path.join(runs_dir, name))
+        ]
+        if missing:
+            raise FileNotFoundError(
+                f"No pre-trained '{model}' low-level policies found for hierarchical "
+                f"training: missing runs/{', runs/'.join(missing)}. Aircraft requesting "
+                f"model '{model}' in hier.yaml require these policies to be pre-trained "
+                f"under '{model}' flight dynamics. Aborting training."
+            )
+
     def load_model(self):
         """Instantiate the pre-trained low-level actor modules (built like StrategyModel).
 
         These run on the low-level obs/action layout (BaseMission.obs_len / LOW_LEVEL_NVEC),
         which differs from this commander's own high-level obs/action space above.
+
+        One policy set is loaded per distinct aircraft model among the RL agents
+        that this commander drives (the task_hier aircraft). For non-f16 models the
+        matching <task>_L*_<model> runs are validated to exist first (see
+        _validate_model_policies), so heterogeneous combat with e.g. an A4 only
+        proceeds when A4 low-level policies were actually pre-trained.
         """
         from env.models import build_low_level_actors
         from algorithm.networks import act_with_policies
         self._act_with_policies = act_with_policies
-        self.policies, self.actor_args = build_low_level_actors(
-            self.obs_len, self.LOW_LEVEL_NVEC, self.POLICY_PATHS,
-        )
+
+        aircraft = getattr(self.config, 'aircraft', {})
+        models = {
+            cfg.get('model', 'f16')
+            for cfg in aircraft.values()
+            if cfg and cfg.get('mission') == 'task_hier'
+        }
+        models.add('f16')  # always available as the default fallback
+
+        self.policies_by_model = {}
+        for model in models:
+            policy_paths = self._policy_paths_for_model(model)
+            if model != 'f16':
+                self._validate_model_policies(model, policy_paths)
+            self.policies_by_model[model], self.actor_args = build_low_level_actors(
+                self.obs_len, self.LOW_LEVEL_NVEC, policy_paths,
+            )
+        # Back-compat alias: f16 policy set used when an agent's model is unknown.
+        self.policies = self.policies_by_model['f16']
 
     def reset(self, env):
         assert self.num_rl_agents + self.num_opp_agents == len(env.rl_agent_ids) + len(env.opp_agent_ids), \
@@ -450,7 +510,8 @@ class HierTask(BaseMission):
         scripted strategy instead.
         """
         policy_type = self.hl_action_mapping[int(action)]
-        self.policy_to_use[agent.aid] = self.policies[policy_type]
+        policies = self.policies_by_model.get(getattr(agent, 'model', 'f16'), self.policies)
+        self.policy_to_use[agent.aid] = policies[policy_type]
 
     def run_action(self, agent, env):
         # Low-level obs/control use BaseMission's layout (30-dim obs, multi-discrete action).

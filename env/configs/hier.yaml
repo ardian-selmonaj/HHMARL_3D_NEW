@@ -3,7 +3,7 @@
 sim_freq: 75
 hl_sim_steps: 10        # high-level step = hl_sim_steps * sim_steps
 map_size: 80
-horizon: 100            # 100 train, 2000 eval
+horizon: 100
 
 num_agents: 6
 num_rl_agents: 3
