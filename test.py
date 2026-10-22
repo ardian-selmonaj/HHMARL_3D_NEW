@@ -19,9 +19,15 @@ def load_checkpoint(restore_path, device):
     return ckpt
 
 RENDER = True
+RESTORE_PATH = "/home/ardian/projects/HHMARL_3D_NEW/runs/track_L4_f16"
+TASK = "track"
+LEVEL = 4
 
 def run_inference(num_episodes=500):
     args, _, device = process_args(tyro.cli(Args))
+    args.restore_path = RESTORE_PATH
+    args.task = TASK
+    args.level = LEVEL
     
     if args.hierarchy_level == 2:
         args.level = 1
@@ -31,7 +37,7 @@ def run_inference(num_episodes=500):
         args.task = f"{args.task}/L{args.level}"
 
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), 
-              "rendering": RENDER, "render_view": 0}
+              "rendering": RENDER, "render_view": 0, "render_samples": args.render_samples}
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 

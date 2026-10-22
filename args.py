@@ -123,3 +123,5 @@ class Args:
     """ If True, apply torch.compile to actors' .act and critic.forward (dynamic shapes). Disable if compilation regresses on your hardware. """
     restore_path: str | None = None
     """ Path to a checkpoint file or directory (loads the latest checkpoint) to resume training. None disables restore. """
+    render_samples: int = 4
+    """ Anti-aliasing (MSAA) samples per pixel when rendering; 0 disables anti-aliasing. Rounded down to a power of two the GPU supports. """

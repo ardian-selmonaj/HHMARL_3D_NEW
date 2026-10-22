@@ -19,6 +19,7 @@ class AircraftEnv(gym.Env):
         self.config = parse_config(config["mission_config"])
         self.hierarchy_level = config["hierarchy_level"]
         self.training_level = config["training_level"]
+        self.render_samples = config.get("render_samples", 4)
         self.rnd_init_states = getattr(self.config, "rnd_init", True)
         self.horizon = getattr(self.config, "horizon", 1000)
         self.sim_freq = getattr(self.config, "sim_freq", 100)

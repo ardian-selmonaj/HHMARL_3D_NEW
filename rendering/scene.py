@@ -8,7 +8,7 @@ class Scene:
     RADIUS = 6.3781e6 #earth radius
 
     def __init__(self, env):
-        self.viewer = Viewer(1280, 720)
+        self.viewer = Viewer(1280, 720, samples=env.render_samples)
         self.env = env
         self.objects = {}
         self.objects_dead_pos = {}
