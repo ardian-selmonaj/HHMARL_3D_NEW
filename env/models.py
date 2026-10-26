@@ -6,6 +6,7 @@ from gymnasium import spaces
 
 from env.catalog import Catalog as c
 from env.missions import BaseMission
+from env.terminations import DeadAgent
 from env.base_actor.baseline_actor import BaselineActor
 from env.utils import get_root_dir, in_range_rad, load_pretrained_actors
 from args import Args
@@ -392,13 +393,17 @@ class HierModel(BaseMission):
             act = np.random.randint(0, 3)
         self.policy_to_use[agent.aid] = self.policies[self.HL_ACTION_MAPPING[act]]
 
-    def run_action(self, agent, env):
+    def prepare_action(self, agent, env):
+        """Sets the flight controls chosen by the selected low-level policy."""
         ll_obs = self.get_obs(env=env, agent=agent)
         ll_action = self.get_ll_action(ll_obs, agent)
         if bool(ll_action[4]):
             self._cannon(agent, env)
         ll_action = self.get_action(action=ll_action, agent=agent, env=env)
         agent.set_property_values(self.action_var, ll_action)
+
+    def run_action(self, agent, env):
+        self.prepare_action(agent, env)
         for _ in range(env.sim_steps):
             agent.run()
 
@@ -415,3 +420,47 @@ class HierModel(BaseMission):
     def _cannon(self, agent, env):
         if agent.alive and agent.cannon.ready:
             agent.cannon.launch(parent=agent, env=env)
+
+
+class HumanModel(BaseMission):
+    """Aircraft flown by a human with the keyboard of FlightSim (MANUAL in test.py).
+
+    The flight controls are read from FlightSim before every JSBSim step (see FlightSimBridge.before_substep),
+    the cannon fires when the fire key (space) was pressed.
+    """
+
+    def load_obs_space(self):
+        # Not an RL agent, so no observation space is needed.
+        pass
+
+    def load_rewards(self):
+        self.rewards = []
+
+    def get_action(self, action=None, agent=None, env=None):
+        flightsim = getattr(env, "flightsim", None)
+        if flightsim is None or flightsim.manual_agent != agent.aid:
+            raise RuntimeError(f"{agent.aid} is flown by a human, which needs FlightSim with manual_agent='{agent.aid}'")
+        if flightsim.consume_fire() and agent.alive and agent.cannon.ready:
+            agent.cannon.launch(parent=agent, env=env)
+        return flightsim.manual_controls()
+
+    def set_policy(self, action, agent, env):
+        # The commander of the hierarchical env does not command the human.
+        pass
+
+    def prepare_action(self, agent, env):
+        agent.set_property_values(self.action_var, self.get_action(agent=agent, env=env))
+
+    def run_action(self, agent, env):
+        self.prepare_action(agent, env)
+        for _ in range(env.sim_steps):
+            agent.run()
+
+    def step(self, env, agent):
+        if agent.cannon.done:
+            agent.cannon.revert_cannon()
+        # The env only checks the terminations of RL agents, so the crashes of the human are checked here.
+        if agent.alive:
+            for condition in self.terminations:
+                if not isinstance(condition, DeadAgent):
+                    condition.get_termination(self, env, agent.aid)

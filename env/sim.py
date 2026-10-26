@@ -167,7 +167,10 @@ class AircraftSim(BaseSim):
         self.opponents = [] #AirCraftSim
         self.cannon = None
         self.missiles_max = num_missiles
-        
+        # Creates the JSBSim instance on reload(): None for jsbsim.FGFDMExec, otherwise a function
+        # fdm_factory(aircraft_sim) returning an object with the same methods, e.g. rendering.flightsim.FlightSimFDM
+        self.fdm_factory = None
+
         #self.reload()
 
     @property
@@ -201,7 +204,7 @@ class AircraftSim(BaseSim):
         if mission is not None: self.mission = mission
 
         # load and reset properties
-        self.ac_sim = jsbsim.FGFDMExec(JSBSIM_DIR)
+        self.ac_sim = jsbsim.FGFDMExec(JSBSIM_DIR) if self.fdm_factory is None else self.fdm_factory(self)
         self.ac_sim.set_debug_level(0)
         self.ac_sim.load_model(self.model)
         self.ac_sim.set_dt(self.dt)

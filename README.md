@@ -46,7 +46,20 @@ python test.py
 This evaluates over many episodes and reports mean win/loss rates. 
 
 ### Rendering
-The scene is rendered in PyGame by default (left image). Rendering can be disabled by setting `RENDER` in [`test.py`](test.py) to `False`. The more realistic renderer (right image) is based on [Skybolt](https://github.com/Prograda/Skybolt/tree/master) and currently under development.
+The scene is rendered in PyGame by default (left image). Rendering can be disabled by setting `RENDER` in [`test.py`](test.py) to `False`. The more realistic renderer (right image) is [FlightSim](https://github.com/ardian-selmonaj/FlightSim), based on [Skybolt](https://github.com/Prograda/Skybolt/tree/master), which is selected with `RENDERER = "flightsim"` in [`test.py`](test.py). Training never uses FlightSim.
+
+FlightSim is a separate repository: clone it next to this repository (or set the environment variable `FLIGHTSIM_DIR` to its folder) and set it up as described in its README, which builds the `skybolt` Python module for Python 3.11, so the venv of this repository needs Python 3.11 as well. FlightSim is only imported when it is used ([`rendering/flightsim.py`](rendering/flightsim.py)). The other settings of [`test.py`](test.py):
+
+| Setting | Meaning |
+|---|---|
+| `LOCATION` | (longitude, latitude) of the battle field center, e.g. Lugano. The initial states of the configs keep their offsets from the center. |
+| `INIT_STATES` | initial state per aircraft, relative to the center (`north`/`east` in m, `alt`, `speed`, `heading`, optionally `roll`/`pitch`), or `None` for the configs (also used with PyGame) |
+| `JSBSIM_STATES` | `"python"`: the JSBSim of this env simulates the aircraft and FlightSim shows them, `"c++"`: the JSBSim of FlightSim simulates them. Both use JSBSim 1.3.0 at `sim_freq` (75 Hz). |
+| `MANUAL`, `MANUAL_AGENT` | a human flies `MANUAL_AGENT` with the keyboard (mission `model_human`), as teammate of the blue RL agents. It is added as copy of `B1` if the config has no such aircraft (e.g. `B2` with `track`/`cannon`/`escape`), otherwise it replaces the RL agent (e.g. `B3` with `hier`, where the commander observes the human as friendly). |
+
+The policies always act every `sim_steps` JSBSim steps as in training, and FlightSim shows the aircraft in real time after every JSBSim step. With FlightSim, the aircraft of the hierarchical env are simulated in lockstep (all aircraft set their controls, then all advance together) instead of one after another. Labels show the aircraft IDs (e.g. `B1`, `R2`) and trails the last 30 km flown, in the team colors. Keys: F1 cockpit, F2 follow, F3 overview of all aircraft (the default without `MANUAL`; the mouse rotates around them and its wheel zooms, without `MANUAL` also A/D and W/S), F4 free camera, Tab next aircraft, L labels, T trails, R start/stop recording, H help, Esc exit. Manual flight: Up/Down pitch down/up, Left/Right roll, A/D rudder, W/S throttle, Space cannon.
+
+R records the view of the FlightSim window (the selected camera, with labels and trails if shown, but without the help message and the red dot in the top left corner that shows the recording) into a new MP4 file in `recordings/`, until R is pressed again or FlightSim is closed. The video has 30 frames per second of simulated time, so it plays at the real speed of the simulation. Frames of the video are never skipped, so on a PC that renders slower than that, the simulation runs slower than real time while recording. The video is encoded by the ffmpeg of the `imageio-ffmpeg` package of `requirements.txt`.
 
 ### Key arguments
 Besides others, the most important configuration arguments of [`args.py`](args.py) are the following:
