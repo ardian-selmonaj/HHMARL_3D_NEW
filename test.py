@@ -9,19 +9,9 @@ from env.env import AircombatMARL
 from rendering.flightsim import FlightSimClosed
 from train import process_args
 
-def load_checkpoint(restore_path, device):
-    path = restore_path
-    if os.path.isdir(path):
-        candidates = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")))
-        assert candidates, f"No checkpoints found in {path}"
-        path = candidates[-1]
-    ckpt = torch.load(path, map_location=device, weights_only=False)
-    print(f"Loaded checkpoint: {path}  (trained to step {ckpt['step']})")
-    return ckpt
-
 RENDER = True
 RENDERER = "flightsim"  # "pygame": simple rendering of this repository, "flightsim": FlightSim (see README)
-RESTORE_PATH = r"C:\Users\ardian.selmonaj\Projects\HHMARL_3D_NEW\runs\cannon_L4_f16"
+RESTORE_PATH = r"C:\Users\ardian.selmonaj\Projects_MSI\HHMARL_3D_NEW\runs\cannon_L4_f16"
 TASK = "cannon"
 LEVEL = 4
 
@@ -39,6 +29,16 @@ JSBSIM_STATES = "python"  # "python": the JSBSim of this env simulates the aircr
 MANUAL = False            # True: a human flies MANUAL_AGENT with the keyboard, as teammate of the blue RL agents
 MANUAL_AGENT = "B2"       # added as copy of B1 if the config has no such aircraft (track/cannon/escape), replaces it otherwise (hier: B3)
 LOCATION = (8.965318, 45.975305)  # (longitude, latitude) of the battle field center in degrees, here Lugano
+
+def load_checkpoint(restore_path, device):
+    path = restore_path
+    if os.path.isdir(path):
+        candidates = sorted(glob.glob(os.path.join(path, "checkpoint*.pt")))
+        assert candidates, f"No checkpoints found in {path}"
+        path = candidates[-1]
+    ckpt = torch.load(path, map_location=device, weights_only=False)
+    print(f"Loaded checkpoint: {path}  (trained to step {ckpt['step']})")
+    return ckpt
 
 def run_inference(num_episodes=500):
     args, _, device = process_args(tyro.cli(Args))
