@@ -423,10 +423,11 @@ class HierModel(BaseMission):
 
 
 class HumanModel(BaseMission):
-    """Aircraft flown by a human with the keyboard of FlightSim (MANUAL in test.py).
+    """Aircraft flown by a human with the joysticks or the keyboard of FlightSim (MANUAL in test.py).
 
-    The flight controls are read from FlightSim before every JSBSim step (see FlightSimBridge.before_substep),
-    the cannon fires when the fire key (space) was pressed.
+    The flight controls and the fire button of the joystick (or the fire key, space) are read from FlightSim before every JSBSim
+    step (see FlightSimBridge.before_substep). Unlike for the RL agents, the cannon fires exactly while the button is held
+    (CannonSim.fire), without the time limit, the waiting time and the limited ammunition of CannonSim.launch.
     """
 
     def load_obs_space(self):
@@ -440,9 +441,15 @@ class HumanModel(BaseMission):
         flightsim = getattr(env, "flightsim", None)
         if flightsim is None or flightsim.manual_agent != agent.aid:
             raise RuntimeError(f"{agent.aid} is flown by a human, which needs FlightSim with manual_agent='{agent.aid}'")
-        if flightsim.consume_fire() and agent.alive and agent.cannon.ready:
-            agent.cannon.launch(parent=agent, env=env)
         return flightsim.manual_controls()
+
+    def fire_cannon(self, agent, env, firing):
+        """Fires the cannon while firing is True (the fire button is held), and stops it at once otherwise.
+        Called by FlightSimBridge before every JSBSim step."""
+        if firing and agent.alive:
+            agent.cannon.fire(parent=agent, env=env)
+        else:
+            agent.cannon.cease_fire()
 
     def set_policy(self, action, agent, env):
         # The commander of the hierarchical env does not command the human.

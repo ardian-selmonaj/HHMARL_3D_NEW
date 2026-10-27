@@ -15,7 +15,7 @@ class AircraftEnv(gym.Env):
     Optional config entries besides the mission config:
       config_overrides (dict): deep-merged into the mission config, e.g. {"battle_field_center": [lon, lat, 0.0]}.
       flightsim (dict): shows the aircraft in FlightSim, with the arguments of rendering.flightsim.FlightSimBridge,
-        e.g. {"jsbsim_states": "python", "manual_agent": "B2"}. The manual agent is flown by a human with the
+        e.g. {"jsbsim_states": "python", "manual_agent": "B2"}. The manual agent is flown by a human with the joysticks or the
         keyboard (mission model_human). It is added as a copy of the first aircraft of its team if the config has no such aircraft.
     """
 

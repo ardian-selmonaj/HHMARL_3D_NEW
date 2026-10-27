@@ -15,7 +15,7 @@ import numpy as np
 from env.utils import get_root_dir
 
 # Minimum FLIGHTSIM_API_VERSION of the FlightSim build
-FLIGHTSIM_API_VERSION = 4
+FLIGHTSIM_API_VERSION = 8
 
 # Colors of the labels and trails per team (linear RGB)
 TEAM_COLORS = {"B": (0.05, 0.3, 1.0), "R": (1.0, 0.06, 0.04)}
@@ -52,7 +52,9 @@ class FlightSimBridge:
         env: the AircraftEnv.
         jsbsim_states: "python" if the JSBSim of the env simulates the aircraft and FlightSim only shows them,
             "c++" if the JSBSim of FlightSim simulates them (see FlightSimFDM). Both use JSBSim 1.3.0 at sim_freq.
-        manual_agent: ID of the aircraft flown by a human with the keyboard (mission model_human), or None.
+        manual_agent: ID of the aircraft flown by a human with the joysticks (FlightSim's Tools/joysticks.json) or the keyboard
+            (mission model_human), or None. Its F-16 is the one of FlightSim's Assets/Movers/JSBSimManual, whose rudder is
+            corrected, also with jsbsim_states="c++" (MANUAL_TEMPLATES). The RL agents keep the F-16 of their training.
         window: (x, y, width, height) of the FlightSim window.
         speed: simulated seconds per real second, or None to run as fast as possible.
         camera_view: "Cockpit", "Follow", "Overview" (all aircraft) or "Free", or None for "Cockpit" with manual_agent,
@@ -72,6 +74,8 @@ class FlightSimBridge:
     }
     # JSBSim models of the "c++" templates
     CPP_MODELS = ("f16",)
+    # "c++" templates of the manual agent, with the F-16 of FlightSim's Assets/Movers/JSBSimManual
+    MANUAL_TEMPLATES = {"B": "SepecatJaguarJsbBlueManual", "R": "SepecatJaguarJsbRedManual"}
 
     def __init__(self, env, jsbsim_states="python", manual_agent=None, window=(10, 30, 1600, 900), speed=1.0,
                  camera_view=None, trail_length=30000.0, templates=None, tracer_interval=5, headless=False, recording_dir=None):
@@ -108,6 +112,11 @@ class FlightSimBridge:
                     raise ValueError(f"{agent.aid} uses the JSBSim model '{agent.model}', but the FlightSim templates "
                                      f"simulate {self.CPP_MODELS}. Use jsbsim_states='python'.")
                 agent.fdm_factory = self.create_fdm
+        elif manual_agent is not None:
+            import flightsim_env
+            human = env.agents[manual_agent]
+            if (flightsim_env.MANUAL_AIRCRAFT_DIR / human.model).is_dir():
+                human.aircraft_path = str(flightsim_env.MANUAL_AIRCRAFT_DIR)
 
         self._hidden = set()  # IDs of the env aircraft that are hidden because they died
         self._substeps = 0
@@ -118,13 +127,17 @@ class FlightSimBridge:
         """AircraftSim.fdm_factory for jsbsim_states="c++"."""
         return FlightSimFDM(self, agent)
 
+    def fdm_template(self, agent):
+        """@returns the template of the FlightSim aircraft that simulates the agent with jsbsim_states="c++"."""
+        return self.MANUAL_TEMPLATES[agent.tid] if agent.aid == self.manual_agent else self.templates[agent.tid]
+
     def manual_controls(self):
-        """@returns the keyboard controls of the manual aircraft: aileron, elevator, rudder, throttle."""
+        """@returns the controls of the manual aircraft from the joysticks or the keyboard: aileron, elevator, rudder, throttle."""
         return np.asarray(self.app.get_manual_controls(), dtype=np.float64)
 
     def consume_fire(self):
-        """@returns True if the fire key was pressed since the last call."""
-        return self.app.consume_fire_requests() > 0
+        """@returns True if the fire button or key is held, or was pressed since the last call."""
+        return self.app.consume_fire_requests() > 0 or self.app.fire_pressed
 
     def on_reset(self, env):
         """Shows the aircraft at their initial states, called at the end of AircraftEnv.reset()."""
@@ -138,6 +151,7 @@ class FlightSimBridge:
                     self.app.set_aircraft_visible(fid, True)
                 else:
                     self.app.add_aircraft(fid, self.templates[agent.tid], *self._state(agent))
+                self._show_throttle(fid, agent)
             # With "c++", FlightSimFDM has created the aircraft in AircraftSim.reload()
         self._hidden.clear()
 
@@ -166,6 +180,7 @@ class FlightSimBridge:
             human = env.agents[self.manual_agent]
             if human.alive:
                 human.set_property_values(human.mission.action_var, self.manual_controls())
+            human.mission.fire_cannon(human, env, self.consume_fire())
 
         if self.jsbsim_states == "c++":
             # Advances all JSBSim aircraft of FlightSim, FlightSimFDM.run() does nothing
@@ -177,6 +192,7 @@ class FlightSimBridge:
             for aid, agent in env.agents.items():
                 if agent.alive:
                     self.app.set_aircraft_state(self.ids[aid], *self._state(agent))
+                    self._show_throttle(self.ids[aid], agent)
             self.app.step(1)
 
         self._substeps += 1
@@ -203,6 +219,11 @@ class FlightSimBridge:
                                    get("velocities/v-east-fps") * FEET_TO_METERS,
                                    get("velocities/v-down-fps") * FEET_TO_METERS)
         return position, rpy, velocity
+
+    def _show_throttle(self, fid, agent):
+        """Passes the throttle lever of a Python JSBSim aircraft to FlightSim, whose nozzles show it while it is the camera target.
+        The JSBSim aircraft of FlightSim (jsbsim_states="c++") show their own."""
+        self.app.set_aircraft_throttle(fid, agent.ac_sim.get_property_value("fcs/throttle-cmd-norm"))
 
     def _present(self):
         """Renders a frame, keeping the simulation in real time (or at speed), if not behind schedule.
@@ -244,8 +265,8 @@ class FlightSimFDM:
         lon, lat = bridge.center
         # The initial conditions are set by run_ic(), this is just the position until then
         position = bridge.sb.LatLonAlt(math.radians(lat), math.radians(lon), 5000.0)
-        self.app.add_aircraft(self.id, bridge.templates[agent.tid], position)
-        # The flight controls are set by the env (and for the manual agent from the keyboard by FlightSimBridge)
+        self.app.add_aircraft(self.id, bridge.fdm_template(agent), position)
+        # The flight controls are set by the env (and for the manual agent from the joysticks or the keyboard by FlightSimBridge)
         self.app.set_external_control(self.id, True)
 
     def set_debug_level(self, level):

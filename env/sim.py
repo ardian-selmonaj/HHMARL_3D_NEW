@@ -170,6 +170,9 @@ class AircraftSim(BaseSim):
         # Creates the JSBSim instance on reload(): None for jsbsim.FGFDMExec, otherwise a function
         # fdm_factory(aircraft_sim) returning an object with the same methods, e.g. rendering.flightsim.FlightSimFDM
         self.fdm_factory = None
+        # Folder of the JSBSim model of jsbsim.FGFDMExec, None for the aircraft of the jsbsim package. FlightSimBridge sets the
+        # one of FlightSim for the manual agent, whose F-16 has a corrected rudder.
+        self.aircraft_path = None
 
         #self.reload()
 
@@ -206,6 +209,8 @@ class AircraftSim(BaseSim):
         # load and reset properties
         self.ac_sim = jsbsim.FGFDMExec(JSBSIM_DIR) if self.fdm_factory is None else self.fdm_factory(self)
         self.ac_sim.set_debug_level(0)
+        if self.aircraft_path is not None:
+            self.ac_sim.set_aircraft_path(self.aircraft_path)
         self.ac_sim.load_model(self.model)
         self.ac_sim.set_dt(self.dt)
         Catalog.add_jsbsim_props(self.ac_sim.query_property_catalog(""))
@@ -386,6 +391,7 @@ class CannonSim(object):
         self._Rhit_prob = 0.8   # hit probability   
         self.t_max = 90 * self.sim_steps*self.dt
         self.shot_step = 0
+        self._held = False  # fires while held, see fire()
 
     @property
     def ready(self):
@@ -437,6 +443,25 @@ class CannonSim(object):
                 return True
         return False
 
+    def fire(self, parent: AircraftSim, env):
+        """Fires while it is called before every JSBSim step, until cease_fire(), e.g. while the fire button of the human is held.
+        Unlike launch(), a burst lasts only as long as it is held, the next one can follow at once, and the ammunition is unlimited."""
+        if self.alive:
+            return True
+        self.parent_aircraft = parent
+        self._t = 0
+        self._held = True
+        self._status = CannonSim.LAUNCHED
+        self.shot_step = env.steps
+        return True
+
+    def cease_fire(self):
+        """Stops the burst of fire()."""
+        if self._held:
+            self._held = False
+            if self.alive:
+                self._status = CannonSim.INACTIVE
+
     def revert_cannon(self):
         """Reset cannon status to be ready."""
         if self.done:
@@ -447,7 +472,7 @@ class CannonSim(object):
         for opp in self.parent_aircraft.opponents:
             ata, dist = self.get_distance_angle(target=opp)
 
-            if (self._t > self.t_max):
+            if (self._t > self.t_max) and not self._held:
                 self._status = CannonSim.MISS
                 # self.parent_aircraft.cannon = None
 
