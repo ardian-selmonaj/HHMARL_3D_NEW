@@ -167,6 +167,7 @@ class AircraftSim(BaseSim):
         self.opponents = [] #AirCraftSim
         self.cannon = None
         self.missiles_max = num_missiles
+        self.ac_sim = None  # JSBSim instance, created by reload()
         # Creates the JSBSim instance on reload(): None for jsbsim.FGFDMExec, otherwise a function
         # fdm_factory(aircraft_sim) returning an object with the same methods, e.g. rendering.flightsim.FlightSimFDM
         self.fdm_factory = None
@@ -378,6 +379,7 @@ class CannonSim(object):
     LAUNCHED = 0
     HIT = 1
     MISS = 2
+    HIT_PROBABILITY = 0.8   # per JSBSim step while an opponent is inside the WEZ cone, also used for VR-F detonations (comm.dis_bridge)
 
     def __init__(self, dt:float, sim_steps:int, max_missiles:int):
         self._status = CannonSim.INACTIVE
@@ -388,7 +390,7 @@ class CannonSim(object):
         self.cannon_shots = self.max_shots = max_missiles
         self.omega_wez = 10     # (half) cone angle in °
         self.Rmax_wez = 3500   # m
-        self._Rhit_prob = 0.8   # hit probability   
+        self._Rhit_prob = CannonSim.HIT_PROBABILITY   # hit probability
         self.t_max = 90 * self.sim_steps*self.dt
         self.shot_step = 0
         self._held = False  # fires while held, see fire()

@@ -471,3 +471,32 @@ class HumanModel(BaseMission):
             for condition in self.terminations:
                 if not isinstance(condition, DeadAgent):
                     condition.get_termination(self, env, agent.aid)
+
+
+class VrfModel(BaseMission):
+    """Aircraft simulated by VR-Forces, as opponent or teammate of the RL agents (test_dis.py).
+
+    Its state comes from the DIS entity state PDUs of the VR-F entity bound to it (comm.dis_bridge.DISRemoteFDM, which replaces
+    its JSBSim), so the flight controls set by the env have no effect, and the commander of the hierarchical env does not command it.
+    Whether it is shot down or crashed is set by comm.dis_bridge.DISBridge.
+    """
+
+    def load_obs_space(self):
+        # Not an RL agent, so no observation space is needed.
+        pass
+
+    def load_rewards(self):
+        self.rewards = []
+
+    def get_action(self, action=None, agent=None, env=None):
+        return np.zeros(len(self.action_var))
+
+    def set_policy(self, action, agent, env):
+        pass
+
+    def prepare_action(self, agent, env):
+        pass
+
+    def run_action(self, agent, env):
+        for _ in range(env.sim_steps):
+            agent.run()

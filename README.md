@@ -62,6 +62,33 @@ The policies always act every `sim_steps` JSBSim steps as in training, and Fligh
 
 R records the view of the FlightSim window (the selected camera, with labels, trails and minimap if shown, but without the help message and the red dot in the top left corner that shows the recording) into a new MP4 file in `recordings/`, until R is pressed again or FlightSim is closed. The video has 30 frames per second of simulated time, so it plays at the real speed of the simulation. Frames of the video are never skipped, so on a PC that renders slower than that, the simulation runs slower than real time while recording. The video is encoded by the ffmpeg of the `imageio-ffmpeg` package of `requirements.txt`.
 
+### VR-Forces (DIS)
+[`test_dis.py`](test_dis.py) deploys the trained policies in VR-Forces (VR-F) over DIS (IEEE 1278.1): the RL agents are simulated by the JSBSim of this env and sent to VR-F, while VR-F aircraft fly with or against them. The policies observe the VR-F aircraft like the aircraft in training, since the observations only need their position, velocity and attitude, which are in the DIS entity states, so the policies of the normal training are used without retraining. The env runs in real time, the policies act every `sim_steps` JSBSim steps as in training, and the VR-F aircraft are dead reckoned to every JSBSim step. The connection ([`comm/`](comm/)) uses [opendis](https://github.com/open-dis/open-dis-python), whose metadata requires numpy<2, although it works with the numpy 2 of this repository, so install it without dependencies:
+```bash
+pip install --no-deps opendis==1.0
+```
+Start the scenario in VR-F, then run `python test_dis.py` (with `--hierarchy_level 2` for the commander, as `test.py`). Before every episode it waits until the VR-F aircraft are received and lists the received entities while waiting. The VR-F aircraft are bound by their markings, also after a restart of the VR-F scenario, which gives them new entity IDs. The settings of [`test_dis.py`](test_dis.py):
+
+| Setting | Meaning |
+|---|---|
+| `VRF_SIMULATION` | `True`: all aircraft, also the RL agents, are simulated by VR-F and only the actions are computed here (not implemented yet). `False`: the RL agents are simulated by the JSBSim of this env. |
+| `DIS_ADDRESS`, `DIS_PORT`, `EXERCISE_ID` | DIS network of VR-F: broadcast address (or the IP address of the VR-F computer, or a multicast group), UDP port and exercise ID. If VR-F runs on the same computer, use broadcast or multicast, since a unicast datagram reaches only one of the programs on the port. |
+| `SITE_ID`, `APPLICATION_ID` | DIS address of this program. Its own PDUs are ignored when they are received back, so the application ID must differ from the one of VR-F. |
+| `RESTORE_PATH`, `TASK`, `LEVEL` | the policy, as in `test.py` |
+| `NUM_RL_AGENTS` | number of RL agents (`B1`, `B2`, ...) |
+| `VRF_TEAMMATES`, `VRF_OPPONENTS` | markings of the VR-F aircraft in the team of the RL agents and against them, e.g. `["F-35A 1", "F-22 1"]`. An entry `None` takes any VR-F aircraft of the friendly (DIS force 1) or opposing (2) force. The commander observes VR-F teammates as friendlies, but does not command them. |
+| `NUM_SIM_OPPONENTS` | opponents simulated by the JSBSim of this env with the opponent mission of the task (e.g. `model_strategy` for cannon L4), also sent to VR-F |
+| `LOCATION` | (longitude, latitude) of the battle field center, in the area of the VR-F scenario. The observations and the map boundary (`map_size`) are relative to it, as in training. |
+| `INIT_STATES`, `HORIZON`, `NUM_EPISODES` | initial states of the aircraft of this env (as in `test.py`), steps per episode (`None`: the config) and number of episodes |
+| `KILL_RADIUS` | m, a VR-F detonation closer than this to an aircraft of this env hits it with the hit probability of the cannon of the env (80 %, `CannonSim.HIT_PROBABILITY`) |
+| `MUNITION_TYPE`, `MUNITION_WARHEAD`, `MUNITION_FUSE` | DIS enumerations of the munition sent to VR-F as detonation when the cannon of the env hits a VR-F aircraft, so that VR-F destroys it (default: AIM-120C, high explosive blast fragmentation, proximity fuse). The damage tables of VR-F decide whether it is destroyed. |
+| `ENTITY_TYPES` | DIS entity types of the aircraft sent to VR-F per JSBSim model |
+| `SEND_RATE`, `ENTITY_TIMEOUT`, `WAIT_TIMEOUT` | entity states per second of every aircraft of this env; seconds without entity state after which a VR-F aircraft counts as removed; seconds to wait for the VR-F aircraft before an episode (`None`: as long as needed) |
+| `LIST_ENTITIES` | only lists the entities received over DIS (IDs, markings, forces, types, positions), e.g. to find the markings of the VR-F aircraft |
+| `SHOW_STATES` | prints the RL agents with their closest opponents and the DIS traffic every 2 s |
+
+VR-F shows the aircraft of this env as e.g. `F16 RL-B1` (RL agent) or `F16 SIM-R2` (simulated opponent), with DIS force 1 for team B and 2 for team R. Every burst of their cannon is sent as fire PDU, aircraft that are shot down or crash are sent as destroyed, and when `test_dis.py` ends, its aircraft are removed from VR-F. A VR-F aircraft that VR-F destroys counts as shot down, one that VR-F removes or no longer sends (`ENTITY_TIMEOUT`) as crashed.
+
 ### Key arguments
 Besides others, the most important configuration arguments of [`args.py`](args.py) are the following:
 

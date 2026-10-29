@@ -17,6 +17,9 @@ class AircraftEnv(gym.Env):
       flightsim (dict): shows the aircraft in FlightSim, with the arguments of rendering.flightsim.FlightSimBridge,
         e.g. {"jsbsim_states": "python", "manual_agent": "B2"}. The manual agent is flown by a human with the joysticks or the
         keyboard (mission model_human). It is added as a copy of the first aircraft of its team if the config has no such aircraft.
+      dis (dict): connects the env to VR-Forces over DIS, with the arguments of comm.dis_bridge.DISBridge,
+        e.g. {"address": "10.11.255.255", "vrf_entities": {"R2": "F-35A 1"}}. The aircraft with mission model_vrf are simulated
+        by VR-F, the others are sent to VR-F, and the env runs in real time (see test_dis.py).
     """
 
     metadata = {"render.modes": ["simple", "fg"]}
@@ -48,6 +51,10 @@ class AircraftEnv(gym.Env):
         if flightsim_options is not None:
             from rendering.flightsim import FlightSimBridge
             self.flightsim = FlightSimBridge(self, **flightsim_options)
+        self.dis = None
+        if config.get("dis") is not None:
+            from comm.dis_bridge import DISBridge
+            self.dis = DISBridge(self, **config["dis"])
 
     def _add_human_agent(self, aid):
         """Lets a human fly aircraft aid, see the class docstring."""
@@ -84,11 +91,14 @@ class AircraftEnv(gym.Env):
         self.rl_agent_ids = []
         self.opp_agent_ids = []
         self.human_agent_ids = []  # aircraft flown by a human, which are not opponents (see _add_human_agent)
+        self.vrf_teammate_ids = []  # aircraft of VR-Forces in the team of the RL agents, which are not opponents (see test_dis.py)
+        rl_teams = {aid[0] for aid, config in self.config.aircraft.items() if config.get("mission").split("_")[0] == "task"}
         origin = getattr(self.config, "battle_field_center", (0.0, 0.0, 0.0))
         for aid, config in self.config.aircraft.items():
             mission = config.get("mission")
             is_learning = mission.split("_")[0] == "task"
             is_human = mission == "model_human"
+            is_vrf_teammate = mission == "model_vrf" and aid[0] in rl_teams
             self.agents[aid] = AircraftSim(
                 tid=aid[0],
                 aid=aid,
@@ -102,7 +112,14 @@ class AircraftEnv(gym.Env):
                 sim_steps=self.sim_steps,
                 unlimited_fuel=config.get("unlimited_fuel", True),
             )
-            (self.rl_agent_ids if is_learning else self.human_agent_ids if is_human else self.opp_agent_ids).append(aid)
+            if is_learning:
+                self.rl_agent_ids.append(aid)
+            elif is_human:
+                self.human_agent_ids.append(aid)
+            elif is_vrf_teammate:
+                self.vrf_teammate_ids.append(aid)
+            else:
+                self.opp_agent_ids.append(aid)
             self.teams.setdefault(aid[0], []).append(aid)
 
         for aid, agent in self.agents.items():
@@ -195,12 +212,16 @@ class AircraftEnv(gym.Env):
         if seed is not None:
             self.seed(seed)
         self.steps = 0
+        if self.dis is not None:
+            self.dis.before_reset(self)
         self.reset_agent_states((options or {}).get("init_states"))
         for mission in self.missions.values():
             mission.reset(self)
         self._alive_last_step = {aid for aid in self.agents}
         if self.flightsim is not None:
             self.flightsim.on_reset(self)
+        if self.dis is not None:
+            self.dis.on_reset(self)
         return self.get_obs(), {}
 
     def step(self, action: Any) -> Tuple[dict, dict, dict, dict, dict]:
@@ -240,10 +261,14 @@ class AircraftEnv(gym.Env):
         """Advances the given aircraft by one JSBSim step (1/sim_freq seconds)."""
         if self.flightsim is not None:
             self.flightsim.before_substep(self)
+        if self.dis is not None:
+            self.dis.before_substep(self)
         for agent in agents:
             agent.run()
         if self.flightsim is not None:
             self.flightsim.after_substep(self)
+        if self.dis is not None:
+            self.dis.after_substep(self)
 
     def get_obs(self, aid: str = None) -> dict:
         if aid is not None:
@@ -281,6 +306,9 @@ class AircraftEnv(gym.Env):
         }
 
     def close(self):
+        if self.dis is not None:
+            self.dis.close()  # first, to remove the aircraft from VR-F
+            self.dis = None
         for agent in self.agents.values():
             agent.close()
         self.agents.clear()
@@ -334,14 +362,14 @@ class AircraftEnvHier(AircraftEnv):
         for _ in range(self.hl_sim_steps):
             if self.rendering:
                 self.render(viewpoint=self.render_view)
-            if self.flightsim is None:
+            if self.flightsim is None and self.dis is None:
                 for aid, agent in self.agents.items():
                     if not agent.alive:
                         continue
                     agent.mission.run_action(agent=agent, env=self)
             else:
-                # FlightSim shows all aircraft at the same time, so they are simulated in lockstep:
-                # all aircraft set their controls first, then all are advanced together.
+                # FlightSim shows all aircraft at the same time and VR-F flies its aircraft in real time, so they are simulated
+                # in lockstep: all aircraft set their controls first, then all are advanced together.
                 for agent in self.agents.values():
                     if agent.alive:
                         agent.mission.prepare_action(agent=agent, env=self)
