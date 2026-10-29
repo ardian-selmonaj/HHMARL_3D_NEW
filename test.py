@@ -11,7 +11,7 @@ from train import process_args
 
 RENDER = True
 RENDERER = "flightsim"  # "pygame": simple rendering of this repository, "flightsim": FlightSim (see README)
-RESTORE_PATH = r"C:\Users\ardian.selmonaj\Projects_MSI\HHMARL_3D_NEW\runs\cannon_L4_f16"
+RESTORE_PATH = r"runs\cannon_L4_f16"
 TASK = "cannon"
 LEVEL = 4
 
@@ -29,6 +29,8 @@ JSBSIM_STATES = "python"  # "python": the JSBSim of this env simulates the aircr
 MANUAL = False            # True: a human flies MANUAL_AGENT with the keyboard, as teammate of the blue RL agents
 MANUAL_AGENT = "B2"       # added as copy of B1 if the config has no such aircraft (track/cannon/escape), replaces it otherwise (hier: B3)
 LOCATION = (8.965318, 45.975305)  # (longitude, latitude) of the battle field center in degrees, here Lugano
+MINIMAP = True            # map of the aircraft around the camera target in the bottom right corner (key M toggles it, N north-up/heading-up)
+MINIMAP_RANGE = 20000     # m, radius of the minimap; aircraft farther away are shown at its edge with their distance
 
 def load_checkpoint(restore_path, device):
     path = restore_path
@@ -61,7 +63,8 @@ def run_inference(num_episodes=500):
     assert use_flightsim or (not MANUAL and JSBSIM_STATES == "python"), \
         "MANUAL and JSBSIM_STATES = 'c++' need RENDER = True and RENDERER = 'flightsim'"
     if use_flightsim:
-        kwargs["flightsim"] = {"jsbsim_states": JSBSIM_STATES, "manual_agent": MANUAL_AGENT if MANUAL else None}
+        kwargs["flightsim"] = {"jsbsim_states": JSBSIM_STATES, "manual_agent": MANUAL_AGENT if MANUAL else None,
+                               "minimap": MINIMAP, "minimap_range": MINIMAP_RANGE}
         kwargs["config_overrides"] = {"battle_field_center": [LOCATION[0], LOCATION[1], 0.0]}
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."

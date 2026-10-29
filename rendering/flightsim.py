@@ -15,7 +15,7 @@ import numpy as np
 from env.utils import get_root_dir
 
 # Minimum FLIGHTSIM_API_VERSION of the FlightSim build
-FLIGHTSIM_API_VERSION = 8
+FLIGHTSIM_API_VERSION = 9
 
 # Colors of the labels and trails per team (linear RGB)
 TEAM_COLORS = {"B": (0.05, 0.3, 1.0), "R": (1.0, 0.06, 0.04)}
@@ -66,6 +66,12 @@ class FlightSimBridge:
         headless: run FlightSim without a window, e.g. to compare jsbsim_states "c++" and "python".
         recording_dir: folder of the videos recorded with key R (MP4 with 30 frames per second of simulated time, showing the view
             of the window without the help message and the red dot shown while recording), by default "recordings" of this repository.
+        minimap: show the map of the aircraft around the camera target in the bottom right corner of the window (key M toggles it):
+            arrows in the team colors pointing in their headings, with their IDs and distances (3D) to the camera target, and dots along the paths of the other aircraft in the last 30 s.
+        minimap_range: distance in m from the center of the minimap to its outer ring. Aircraft farther away are shown on the ring
+            with their distance.
+        minimap_heading_up: True: the heading of the camera target points up on the minimap, False: north (key N toggles it),
+            None: heading-up with manual_agent, otherwise north-up.
     """
 
     TEMPLATES = {
@@ -78,7 +84,8 @@ class FlightSimBridge:
     MANUAL_TEMPLATES = {"B": "SepecatJaguarJsbBlueManual", "R": "SepecatJaguarJsbRedManual"}
 
     def __init__(self, env, jsbsim_states="python", manual_agent=None, window=(10, 30, 1600, 900), speed=1.0,
-                 camera_view=None, trail_length=30000.0, templates=None, tracer_interval=5, headless=False, recording_dir=None):
+                 camera_view=None, trail_length=30000.0, templates=None, tracer_interval=5, headless=False, recording_dir=None,
+                 minimap=True, minimap_range=20000.0, minimap_heading_up=None):
         if jsbsim_states not in self.TEMPLATES:
             raise ValueError(f"jsbsim_states must be 'python' or 'c++', not '{jsbsim_states}'")
         if manual_agent is not None and manual_agent not in env.agents:
@@ -101,6 +108,9 @@ class FlightSimBridge:
                                      dynamicsRate=env.sim_freq, headless=headless)
         self.app.select_camera_view(camera_view or ("Cockpit" if manual_agent is not None else "Overview"))
         self.app.trail_length = trail_length
+        self.app.minimap_visible = minimap
+        self.app.minimap_range = minimap_range
+        self.app.minimap_heading_up = manual_agent is not None if minimap_heading_up is None else minimap_heading_up
         self.app.recording_directory = recording_dir or os.path.join(get_root_dir(), "recordings")
         for aid, fid in self.ids.items():
             self.app.set_aircraft_label(fid, aid)
