@@ -296,7 +296,10 @@ class StrategyModel(BaseMission):
         # Switch strategy every (env.horizon / 3) steps (horizon 600 -> every 200 steps).
         policy_set_step = self.policy_set_step[agent.aid]
         if policy_set_step == 0 or abs(env.steps - policy_set_step) > (env.horizon / 3):
+        policy_set_step = self.policy_set_step[agent.aid]
+        if policy_set_step == 0 or abs(env.steps - policy_set_step) > (env.horizon / 3):
             self.set_policy(action, agent, env)
+            self.policy_set_step[agent.aid] = env.steps
             self.policy_set_step[agent.aid] = env.steps
 
         assert self.policy_to_use[agent.aid] is not None, f"No policy was selected for agent {agent.aid}"
