@@ -278,7 +278,8 @@ class StrategyModel(BaseMission):
             self.policies[task] = actors
 
     def reset(self, env):
-        self.policy_set_step = 0
+        # Per aircraft, as one mission object serves all aircraft with this mission (e.g. several opponents in test_dis.py).
+        self.policy_set_step = {aid: 0 for aid in env.agents.keys()}
         self.policy_to_use = {aid: None for aid in env.agents.keys()}
         return super().reset(env)
 
@@ -293,9 +294,10 @@ class StrategyModel(BaseMission):
 
     def get_action(self, action, agent, env):
         # Switch strategy every (env.horizon / 3) steps (horizon 600 -> every 200 steps).
-        if self.policy_set_step == 0 or abs(env.steps - self.policy_set_step) > (env.horizon / 3):
+        policy_set_step = self.policy_set_step[agent.aid]
+        if policy_set_step == 0 or abs(env.steps - policy_set_step) > (env.horizon / 3):
             self.set_policy(action, agent, env)
-            self.policy_set_step = env.steps
+            self.policy_set_step[agent.aid] = env.steps
 
         assert self.policy_to_use[agent.aid] is not None, f"No policy was selected for agent {agent.aid}"
 

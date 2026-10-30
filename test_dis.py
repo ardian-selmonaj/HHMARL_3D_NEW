@@ -25,17 +25,19 @@ DIS_PORT = 3000                # UDP port
 EXERCISE_ID = 1                # DIS exercise ID of the VR-F scenario
 SITE_ID = 1                    # DIS site and application ID of this program, the application ID must differ from the one of VR-F
 APPLICATION_ID = 8492
+# (site, application, entity number)
 
-# Policy, as in test.py (the commander of a hierarchical run with: python test_dis.py --hierarchy_level 2)
+# Policy, as in test.py
+HIERARCHY_LEVEL = 1  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
 RESTORE_PATH = r"runs\cannon_L4_f16"
 TASK = "cannon"
 LEVEL = 4
 
 # Aircraft. Team B: the RL agents and VR-F teammates. Team R: the simulated and VR-F opponents.
-NUM_RL_AGENTS = 1            # simulated by the JSBSim of this env and flown by the policy
-VRF_TEAMMATES = []           # markings of the VR-F aircraft flying with the RL agents, e.g. ["F-16C 1"]; an entry None takes any VR-F aircraft of the friendly force
-VRF_OPPONENTS = ["F-35A 1"]  # markings of the VR-F aircraft fought by the RL agents, e.g. ["F-35A 1", "F-22 1"]; an entry None takes any VR-F aircraft of the opposing force
-NUM_SIM_OPPONENTS = 0        # opponents simulated by the JSBSim of this env, with the opponent mission of the task (e.g. model_strategy for cannon L4)
+NUM_RL_AGENTS = 1            # [local JSBsim] simulated by the JSBSim of this env and flown by the policy
+VRF_TEAMMATES = []           # [VR-F] markings of the VR-F aircraft flying with the RL agents, e.g. ["F-16C 1"]; an entry None takes any VR-F aircraft of the friendly force
+VRF_OPPONENTS = ["F-35A 1"]  # [VR-F] markings of the VR-F aircraft fought by the RL agents, e.g. ["F-35A 1", "F-22 1"]; an entry None takes any VR-F aircraft of the opposing force
+NUM_SIM_OPPONENTS = 0        # [local JSBsim] opponents simulated by the JSBSim of this env, with the opponent mission of the task (e.g. model_strategy for cannon L4)
 LOCATION = (7.6280, 46.7580)  # (longitude, latitude) of the battle field center in degrees, in the area of the VR-F scenario. The observations
                               # and the map boundary (map_size) are relative to it, as in training.
 
@@ -121,7 +123,9 @@ def run_inference():
                       application_id=APPLICATION_ID)
         return
 
-    args, _, device = process_args(tyro.cli(Args))
+    args = tyro.cli(Args)
+    args.hierarchy_level = HIERARCHY_LEVEL  # before process_args, which depends on it
+    args, _, device = process_args(args)
     args.restore_path = RESTORE_PATH
     args.task = TASK
     args.level = LEVEL
@@ -197,9 +201,10 @@ def run_inference():
             n_opp = len(env.env.opp_agent_ids)
             n_rl = len(env.env.rl_agent_ids)
             print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d} | killed opp: {n_killed_opp} | killed agent: {n_killed_agent}")
-            if n_killed_opp == n_opp:
+            won, lost = n_killed_opp == n_opp, n_killed_agent == n_rl
+            if won and not lost:  # both: a draw, neither a win nor a loss
                 wins += 1
-            if n_killed_agent == n_rl:
+            elif lost and not won:
                 losses += 1
     except KeyboardInterrupt:
         print("Stopped with Ctrl+C.")

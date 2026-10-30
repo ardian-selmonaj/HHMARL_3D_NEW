@@ -11,6 +11,7 @@ from train import process_args
 
 RENDER = True
 RENDERER = "flightsim"  # "pygame": simple rendering of this repository, "flightsim": FlightSim (see README)
+HIERARCHY_LEVEL = 1  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
 RESTORE_PATH = r"runs\cannon_L4_f16"
 TASK = "cannon"
 LEVEL = 4
@@ -43,7 +44,9 @@ def load_checkpoint(restore_path, device):
     return ckpt
 
 def run_inference(num_episodes=500):
-    args, _, device = process_args(tyro.cli(Args))
+    args = tyro.cli(Args)
+    args.hierarchy_level = HIERARCHY_LEVEL  # before process_args, which depends on it
+    args, _, device = process_args(args)
     args.restore_path = RESTORE_PATH
     args.task = TASK
     args.level = LEVEL
