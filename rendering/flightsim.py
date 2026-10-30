@@ -15,7 +15,7 @@ import numpy as np
 from env.utils import get_root_dir
 
 # Minimum FLIGHTSIM_API_VERSION of the FlightSim build
-FLIGHTSIM_API_VERSION = 9
+FLIGHTSIM_API_VERSION = 10
 
 # Colors of the labels and trails per team (linear RGB)
 TEAM_COLORS = {"B": (0.05, 0.3, 1.0), "R": (1.0, 0.06, 0.04)}
@@ -72,6 +72,10 @@ class FlightSimBridge:
             with their distance.
         minimap_heading_up: True: the heading of the camera target points up on the minimap, False: north (key N toggles it),
             None: heading-up with manual_agent, otherwise north-up.
+        wez: indicate the weapon engagement zones (WEZ) of the cannons (CannonSim) in the cockpit and follow views (F1, F2, key Z
+            toggles it): a light green circle ahead of the camera target while an opponent is in its WEZ, and a red beam from the
+            direction of each opponent that has the camera target in its WEZ, fading out towards it (a red border around the view
+            for an opponent behind the camera).
     """
 
     TEMPLATES = {
@@ -85,7 +89,7 @@ class FlightSimBridge:
 
     def __init__(self, env, jsbsim_states="python", manual_agent=None, window=(10, 30, 1600, 900), speed=1.0,
                  camera_view=None, trail_length=30000.0, templates=None, tracer_interval=5, headless=False, recording_dir=None,
-                 minimap=True, minimap_range=20000.0, minimap_heading_up=None):
+                 minimap=True, minimap_range=20000.0, minimap_heading_up=None, wez=True):
         if jsbsim_states not in self.TEMPLATES:
             raise ValueError(f"jsbsim_states must be 'python' or 'c++', not '{jsbsim_states}'")
         if manual_agent is not None and manual_agent not in env.agents:
@@ -111,10 +115,12 @@ class FlightSimBridge:
         self.app.minimap_visible = minimap
         self.app.minimap_range = minimap_range
         self.app.minimap_heading_up = manual_agent is not None if minimap_heading_up is None else minimap_heading_up
+        self.app.wez_visible = wez
         self.app.recording_directory = recording_dir or os.path.join(get_root_dir(), "recordings")
         for aid, fid in self.ids.items():
             self.app.set_aircraft_label(fid, aid)
             self.app.set_aircraft_color(fid, TEAM_COLORS.get(aid[0], (1.0, 1.0, 1.0)))
+            self.app.set_aircraft_team(fid, env.agents[aid].tid)  # aircraft of other teams are opponents, as in the env
 
         if jsbsim_states == "c++":
             for agent in env.agents.values():
@@ -153,6 +159,10 @@ class FlightSimBridge:
         """Shows the aircraft at their initial states, called at the end of AircraftEnv.reset()."""
         self.app.clear_trails()
         self.app.clear_tracers()
+        # The WEZ indications show the zone of the cannons, which AircraftSim.reload() has created
+        cannon = next(iter(env.agents.values())).cannon
+        self.app.wez_range = cannon.Rmax_wez
+        self.app.wez_angle = cannon.omega_wez
         for aid, agent in env.agents.items():
             fid = self.ids[aid]
             if self.jsbsim_states == "python":

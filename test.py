@@ -31,6 +31,7 @@ MANUAL_AGENT = "B2"       # added as copy of B1 if the config has no such aircra
 LOCATION = (8.965318, 45.975305)  # (longitude, latitude) of the battle field center in degrees, here Lugano
 MINIMAP = True            # map of the aircraft around the camera target in the bottom right corner (key M toggles it, N north-up/heading-up)
 MINIMAP_RANGE = 20000     # m, radius of the minimap; aircraft farther away are shown at its edge with their distance
+WEZ = True                # cockpit/follow view (F1/F2): green circle if the camera target can hit an opponent, red beam if an opponent can hit it (key Z)
 
 def load_checkpoint(restore_path, device):
     path = restore_path
@@ -64,7 +65,7 @@ def run_inference(num_episodes=500):
         "MANUAL and JSBSIM_STATES = 'c++' need RENDER = True and RENDERER = 'flightsim'"
     if use_flightsim:
         kwargs["flightsim"] = {"jsbsim_states": JSBSIM_STATES, "manual_agent": MANUAL_AGENT if MANUAL else None,
-                               "minimap": MINIMAP, "minimap_range": MINIMAP_RANGE}
+                               "minimap": MINIMAP, "minimap_range": MINIMAP_RANGE, "wez": WEZ}
         kwargs["config_overrides"] = {"battle_field_center": [LOCATION[0], LOCATION[1], 0.0]}
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
