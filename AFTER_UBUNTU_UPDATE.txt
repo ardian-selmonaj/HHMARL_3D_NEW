@@ -1,0 +1,1 @@
+Don't delete ~/.local/opt/python-3.12.10 while the venv uses it. To remove this Python completely later: rm -rf ~/.local/opt/python-3.12.10 ~/.local/bin/python312
