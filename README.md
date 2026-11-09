@@ -48,7 +48,7 @@ This evaluates over many episodes and reports mean win/loss rates.
 ### Rendering
 The scene is rendered in PyGame by default (left image). Rendering can be disabled by setting `RENDER` in [`test.py`](test.py) to `False`. The more realistic renderer (right image) is [FlightSim](https://github.com/ardian-selmonaj/FlightSim), based on [Skybolt](https://github.com/Prograda/Skybolt/tree/master), which is selected with `RENDERER = "flightsim"` in [`test.py`](test.py). Training never uses FlightSim.
 
-FlightSim is a separate repository: clone it next to this repository (or set the environment variable `FLIGHTSIM_DIR` to its folder) and set it up as described in its README, which builds the `skybolt` Python module for Python 3.11, so the venv of this repository needs Python 3.11 as well. FlightSim is only imported when it is used ([`rendering/flightsim.py`](rendering/flightsim.py)). The other settings of [`test.py`](test.py):
+FlightSim is a separate repository: clone it next to this repository (or set the environment variable `FLIGHTSIM_DIR` to its folder) and set it up as described in its README, which builds the `skybolt` Python module for Python 3.12, so the venv of this repository needs Python 3.12 as well. FlightSim is only imported when it is used ([`rendering/flightsim.py`](rendering/flightsim.py)). The other settings of [`test.py`](test.py):
 
 | Setting | Meaning |
 |---|---|
