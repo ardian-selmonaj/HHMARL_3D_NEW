@@ -1,4 +1,4 @@
-# Python 3.12 (venv on Ubuntu 26.04): pip install -r requirements_py312.txt
+# Python 3.12 (venv on Ubuntu 26.04): pip install -r requirements.txt
 # Same versions as requirements_py310.txt, except setuptools (the pkg_resources of 59.6.0 fails on Python 3.12).
 # torch==2.11.0+cu128 and its nvidia-*/cuda-* libraries come from the PyTorch CUDA 12.8 index.
 --extra-index-url https://download.pytorch.org/whl/cu128
