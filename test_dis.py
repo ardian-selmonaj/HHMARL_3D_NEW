@@ -145,7 +145,7 @@ def run_inference():
                         "num_rl_agents": num_team_b, "num_opp_agents": num_team_r}
     if HORIZON is not None:
         config_overrides["horizon"] = HORIZON
-    kwargs = {"hierarchy_level": args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2),
+    kwargs = {"hierarchy_level": args.hierarchy_level, "training_level": args.level+int(args.task.startswith(("track", "escape")) or args.hierarchy_level == 2),
               "rendering": False, "config_overrides": config_overrides, "dis": dis_options(vrf_entities)}
 
     env = AircombatMARL(task=args.task, **kwargs)

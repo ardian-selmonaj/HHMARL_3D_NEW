@@ -35,7 +35,7 @@ class Args:
     """ Number of hidden layers of actor network"""
     shared_policies: bool = True
     """ Share one actor across all agents; otherwise one actor per agent"""
-    centralized_critic: bool = True
+    centralized_critic: bool = False
     """ If True, critic takes global state as input (MAPPO); if False, takes each agent's local obs (IPPO) """
     critic_hidden_dim: int = 128
     """ Hidden dimension of critic network"""

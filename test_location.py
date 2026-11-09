@@ -85,7 +85,7 @@ def run_inference(num_episodes=500):
         args.hierarchy_level = 1
         args.task = f"{args.task}/L{args.level}"
 
-    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task == "track" or args.task == "escape" or args.hierarchy_level == 2), 
+    kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task.startswith(("track", "escape")) or args.hierarchy_level == 2), 
               "rendering": RENDER, "render_view": 0, "render_samples": args.render_samples}
 
     assert RENDERER in ("pygame", "flightsim"), f"Unknown RENDERER {RENDERER}"
@@ -155,9 +155,10 @@ def run_inference(num_episodes=500):
             n_opp = len(env.env.opp_agent_ids)
             n_rl = len(env.env.rl_agent_ids)
             print(f"Episode {ep + 1:3d} | reward: {ep_reward:8.3f} | length: {ep_len:4d} | killed opp: {n_killed_opp} | killed agent: {n_killed_agent}")
-            if n_killed_opp == n_opp:
+            won, lost = n_killed_opp == n_opp, n_killed_agent == n_rl
+            if won and not lost:  # both: a draw, neither a win nor a loss
                 wins += 1
-            if n_killed_agent == n_rl:
+            elif lost and not won:
                 losses += 1
     except FlightSimClosed:
         print("FlightSim window closed.")

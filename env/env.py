@@ -362,6 +362,7 @@ class AircraftEnvHier(AircraftEnv):
         for _ in range(self.hl_sim_steps):
             if self.rendering:
                 self.render(viewpoint=self.render_view)
+            alive_before = {aid for aid, agent in self.agents.items() if agent.alive}
             if self.flightsim is None and self.dis is None:
                 for aid, agent in self.agents.items():
                     if not agent.alive:
@@ -376,7 +377,10 @@ class AircraftEnvHier(AircraftEnv):
                 for _ in range(self.sim_steps):
                     self.run_substep([agent for agent in self.agents.values() if agent.alive])
             for aid, agent in self.agents.items():
-                if agent.is_learning and agent.alive:
+                # Agents alive before this low-level step, so that an agent shot down or crashed in it gets the penalty
+                # of EventDrivenReward once. Its terminations are checked here, so that a crash ends it at once.
+                if agent.is_learning and aid in alive_before:
+                    agent.mission.get_termination(self, aid)
                     rewards[aid] += self.get_reward(aid, action, raw_value=True)
                 if agent.alive:
                     agent.mission.step(self, agent)
@@ -400,14 +404,14 @@ class AircraftEnvHier(AircraftEnv):
         info = self._combat_info()
         self._alive_last_step = {aid for aid, agent in self.agents.items() if agent.alive}
 
+        # The time limit is a truncation, not a terminal state (the learner bootstraps the value after it)
         all_done = (
             all(terminated[aid] for aid in self.rl_agent_ids)
             or self._opponents_eliminated()
             or terminated_event
-            or timed_out
         )
         terminated["all"] = all_done
-        truncated["all"] = timed_out and not all(terminated[aid] for aid in self.rl_agent_ids)
+        truncated["all"] = timed_out and not all_done
 
         self.log.debug(f"hl_step={self.steps}, term={terminated}, trunc={truncated}")
         return obs, rewards, terminated, truncated, info
@@ -476,7 +480,10 @@ class AircombatMARL:
         return self.env.observation_space[self.first_agent].shape[0]
 
     def get_state(self):
-        return self.env.get_obs(self.first_agent)[self.first_agent]
+        """State of the centralized critic: the obs of the first alive RL agent (the obs of a dead agent is zeros in
+        AircraftEnvHier), which also contains its closest opponents and friendlies."""
+        aid = next((aid for aid in self.agent_keys if self.env.agents[aid].alive), self.first_agent)
+        return self.env.get_obs(aid)[aid]
 
     def get_action_size(self):
         if self._is_discrete:

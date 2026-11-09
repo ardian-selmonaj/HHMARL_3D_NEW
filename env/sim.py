@@ -394,6 +394,7 @@ class CannonSim(object):
         self.t_max = 90 * self.sim_steps*self.dt
         self.shot_step = 0
         self._held = False  # fires while held, see fire()
+        self.target = None  # opponent shot down by the last burst (status HIT)
 
     @property
     def ready(self):
@@ -481,6 +482,7 @@ class CannonSim(object):
             elif (abs(ata) < self.omega_wez) and (dist < self.Rmax_wez):
                 if opp.alive and random.choices([True, False], [self._Rhit_prob, 1-self._Rhit_prob])[0]:
                     self._status = CannonSim.HIT
+                    self.target = opp
                     opp.shootdown()
                     # self.parent_aircraft.cannon = None
             # else:
