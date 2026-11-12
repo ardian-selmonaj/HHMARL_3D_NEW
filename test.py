@@ -1,4 +1,5 @@
 import os
+import copy
 import glob
 import torch
 import tyro
@@ -6,33 +7,49 @@ import numpy as np
 from args import Args
 from algorithm.networks import build_actor_critic, act_with_policies
 from env.env import AircombatMARL
+from env.utils import parse_config
 from rendering.flightsim import FlightSimClosed
 from train import process_args
 
+# Number of aircraft: friendlies B1 ... B{N_FRIENDLY} (RL agents), opponents R{N_FRIENDLY+1} ... R{N_FRIENDLY+N_OPP}.
+N_FRIENDLY = 2
+N_OPP = 2
+
 RENDER = True
 RENDERER = "flightsim"  # "pygame": simple rendering of this repository, "flightsim": FlightSim (see README)
-HIERARCHY_LEVEL = 1  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
-RESTORE_PATH = r"runs\cannon_L4_f16"
+HIERARCHY_LEVEL = 2  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
+RESTORE_PATH = r"runs\hier_mars"
 TASK = "cannon"
 LEVEL = 4
 
 # Initial states: None for the states of the config (random if rnd_init), or per aircraft relative to the
 # battle field center: "north"/"east" in m (or "lat"/"lon" in degrees), "alt" in m, "speed" in m/s,
 # "heading" in degrees, and optionally "roll"/"pitch" in degrees. Aircraft without an entry use the config.
-# Example: B1 starts 4 km south of the center at 7500 m above sea level, heading north (0 deg) at 250 m/s;
-# R2 starts 4 km north and 1 km east of the center at 7000 m above sea level, heading south (180 deg) at 220 m/s.
+# Example (N_FRIENDLY = 2): B1 starts 4 km south of the center at 7500 m above sea level, heading north (0 deg) at 250 m/s;
+# R3 starts 4 km north and 1 km east of the center at 7000 m above sea level, heading south (180 deg) at 220 m/s.
 INIT_STATES = None
 # INIT_STATES = {"B1": {"north": -4000, "east": 0, "alt": 7500, "heading": 0, "speed": 250},     # m, m, m, deg, m/s
-#                "R2": {"north": 4000, "east": 1000, "alt": 7000, "heading": 180, "speed": 220}}  # m, m, m, deg, m/s
+#                "R3": {"north": 4000, "east": 1000, "alt": 7000, "heading": 180, "speed": 220}}  # m, m, m, deg, m/s
 
 # FlightSim settings (RENDER = True and RENDERER = "flightsim")
 JSBSIM_STATES = "python"  # "python": the JSBSim of this env simulates the aircraft, "c++": the JSBSim of FlightSim
-MANUAL = False            # True: a human flies MANUAL_AGENT with the keyboard, as teammate of the blue RL agents
-MANUAL_AGENT = "B2"       # added as copy of B1 if the config has no such aircraft (track/cannon/escape), replaces it otherwise (hier: B3)
+MANUAL = True            # True: a human flies B1 with the keyboard, as teammate of the RL agents B2 ... B{N_FRIENDLY} (needs N_FRIENDLY >= 2)
 LOCATION = (8.965318, 45.975305)  # (longitude, latitude) of the battle field center in degrees, here Lugano
 MINIMAP = True            # map of the aircraft around the camera target in the bottom right corner (key M toggles it, N north-up/heading-up)
 MINIMAP_RANGE = 20000     # m, radius of the minimap; aircraft farther away are shown at its edge with their distance
 WEZ = True                # cockpit/follow view (F1/F2): green circle if the camera target can hit an opponent, red beam if an opponent can hit it (key Z)
+
+def build_roster(task, n_friendly, n_opp):
+    """Aircraft of the env as config_overrides["aircraft"]: B1 ... B{n_friendly} as copies of the first blue aircraft of the
+    task config, R{n_friendly+1} ... R{n_friendly+n_opp} as copies of its first red aircraft, and None for the other aircraft
+    of the config, which removes them."""
+    aircraft = parse_config(task).aircraft
+    blue = next(cfg for aid, cfg in aircraft.items() if aid[0] == "B")
+    red = next(cfg for aid, cfg in aircraft.items() if aid[0] == "R")
+    roster = {aid: None for aid in aircraft}
+    roster.update({f"B{i}": copy.deepcopy(blue) for i in range(1, n_friendly + 1)})
+    roster.update({f"R{i}": copy.deepcopy(red) for i in range(n_friendly + 1, n_friendly + n_opp + 1)})
+    return roster
 
 def load_checkpoint(restore_path, device):
     path = restore_path
@@ -62,14 +79,20 @@ def run_inference(num_episodes=500):
     kwargs = {"hierarchy_level":args.hierarchy_level, "training_level": args.level+int(args.task.startswith(("track", "escape")) or args.hierarchy_level == 2), 
               "rendering": RENDER, "render_view": 0, "render_samples": args.render_samples}
 
+    assert N_FRIENDLY >= 1 and N_OPP >= 1, "N_FRIENDLY and N_OPP must be at least 1"
+    assert not MANUAL or N_FRIENDLY >= 2, "MANUAL needs N_FRIENDLY >= 2: the human flies B1, the RL agents B2 ... B{N_FRIENDLY}"
+    kwargs["config_overrides"] = {"aircraft": build_roster(args.task, N_FRIENDLY, N_OPP)}
+    if args.hierarchy_level == 2:  # the commander checks the roster against these
+        kwargs["config_overrides"].update(num_rl_agents=N_FRIENDLY, num_opp_agents=N_OPP)
+
     assert RENDERER in ("pygame", "flightsim"), f"Unknown RENDERER {RENDERER}"
     use_flightsim = RENDER and RENDERER == "flightsim"
     assert use_flightsim or (not MANUAL and JSBSIM_STATES == "python"), \
         "MANUAL and JSBSIM_STATES = 'c++' need RENDER = True and RENDERER = 'flightsim'"
     if use_flightsim:
-        kwargs["flightsim"] = {"jsbsim_states": JSBSIM_STATES, "manual_agent": MANUAL_AGENT if MANUAL else None,
+        kwargs["flightsim"] = {"jsbsim_states": JSBSIM_STATES, "manual_agent": "B1" if MANUAL else None,
                                "minimap": MINIMAP, "minimap_range": MINIMAP_RANGE, "wez": WEZ}
-        kwargs["config_overrides"] = {"battle_field_center": [LOCATION[0], LOCATION[1], 0.0]}
+        kwargs["config_overrides"]["battle_field_center"] = [LOCATION[0], LOCATION[1], 0.0]
 
     assert args.restore_path is not None, "Set --restore_path to a checkpoint file or directory."
 
