@@ -20,25 +20,25 @@ VRF_SIMULATION = False  # True: all aircraft, also the RL agents, are simulated 
                         # (not implemented yet). False: the RL agents are simulated by the JSBSim of this env, the VR-F aircraft by VR-F.
 
 # DIS network, as set in VR-Forces
-DIS_ADDRESS = "127.255.255.255"  # broadcast address of the network of VR-F (or the IP address of its computer, or a multicast group)
+DIS_ADDRESS = "10.183.201.255"  # broadcast address of the network of VR-F (or the IP address of its computer, or a multicast group)
 DIS_PORT = 3000                # UDP port
 EXERCISE_ID = 45               # DIS exercise ID of the VR-F scenario
 SITE_ID = 1                    # DIS site and application ID of this program, the application ID must differ from the one of VR-F
-APPLICATION_ID = 8492
+APPLICATION_ID = 3201
 # (site, application, entity number)
 
 # Policy, as in test.py
-HIERARCHY_LEVEL = 1  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
-RESTORE_PATH = r"runs\cannon_L4_f16"
+HIERARCHY_LEVEL = 2  # 1: the low-level policy of TASK and LEVEL, 2: the commander of a hierarchical run (task hier, TASK and LEVEL unused)
+RESTORE_PATH = r"runs\hier_mars"
 TASK = "cannon"
 LEVEL = 4
 
 # Aircraft. Team B: the RL agents and VR-F teammates. Team R: the simulated and VR-F opponents.
-NUM_RL_AGENTS = 1            # [local JSBsim] simulated by the JSBSim of this env and flown by the policy
+NUM_RL_AGENTS = 2           # [local JSBsim] simulated by the JSBSim of this env and flown by the policy
 VRF_TEAMMATES = []           # [VR-F] markings of the VR-F aircraft flying with the RL agents, e.g. ["F-16C 1"]; an entry None takes any VR-F aircraft of the friendly force
-VRF_OPPONENTS = ["F-35A 1"]  # [VR-F] markings of the VR-F aircraft fought by the RL agents, e.g. ["F-35A 1", "F-22 1"]; an entry None takes any VR-F aircraft of the opposing force
+VRF_OPPONENTS = [None, None]  # [VR-F] markings of the VR-F aircraft fought by the RL agents, e.g. ["F-35A 1", "F-22 1"]; an entry None takes any VR-F aircraft of the opposing force
 NUM_SIM_OPPONENTS = 0        # [local JSBsim] opponents simulated by the JSBSim of this env, with the opponent mission of the task (e.g. model_strategy for cannon L4)
-LOCATION = (7.6280, 46.7580)  # (longitude, latitude) of the battle field center in degrees, in the area of the VR-F scenario. The observations
+LOCATION = (7.6217, 46.7512)  # (longitude, latitude) of the battle field center in degrees, in the area of the VR-F scenario. The observations
                               # and the map boundary (map_size) are relative to it, as in training.
 
 # Initial states of the aircraft of this env, as in test.py: None for the states of the config (random if rnd_init) around LOCATION,
@@ -51,7 +51,7 @@ NUM_EPISODES = 10
 
 # Hits. A VR-F detonation within KILL_RADIUS of an aircraft of this env hits it with the hit probability of the cannon of the env
 # (80 %). A cannon hit of this env on a VR-F aircraft is sent to VR-F as detonation of MUNITION_TYPE, so that VR-F destroys it.
-KILL_RADIUS = 50.0                       # m
+KILL_RADIUS = 100.0                       # m
 MUNITION_TYPE = [2, 1, 225, 1, 2, 3, 0]  # DIS entity type: AIM-120C (munition, anti-air, USA, guided, AMRAAM, C)
 MUNITION_WARHEAD = 1620                  # DIS enumeration: high explosive, blast fragmentation
 MUNITION_FUSE = 3000                     # DIS enumeration: proximity

@@ -131,6 +131,40 @@ def entity_type(record):
             record.extra)
 
 
+# Names of DIS enumerations (SISO-REF-010) for the messages. A PDU only carries the numbers.
+DETONATION_RESULTS = {
+    0: "other", 1: "entity impact", 2: "entity proximate detonation", 3: "ground impact", 4: "ground proximate detonation",
+    5: "detonation", 6: "none or no detonation (dud)", 7: "HE hit, small", 8: "HE hit, medium", 9: "HE hit, large",
+    10: "armor-piercing hit", 11: "dirt blast, small", 12: "dirt blast, medium", 13: "dirt blast, large",
+    14: "water blast, small", 15: "water blast, medium", 16: "water blast, large", 17: "air hit",
+    18: "building hit, small", 19: "building hit, medium", 20: "building hit, large", 21: "mine-clearing line charge",
+    22: "environment object impact", 23: "environment object proximate detonation", 24: "water impact", 25: "air burst",
+}
+MUNITION_DOMAINS = {1: "anti-air", 2: "anti-armor", 3: "anti-guided weapon", 4: "anti-radar", 5: "anti-submarine",
+                    6: "anti-ship", 7: "bomb", 8: "battlefield support", 9: "strategic", 10: "tactical",
+                    11: "directed energy"}
+MUNITION_CATEGORIES = {1: "guided", 2: "ballistic", 3: "fixed"}
+COUNTRIES = {45: "China", 71: "France", 78: "Germany", 222: "Russia", 224: "UK", 225: "USA"}
+
+
+def detonation_result_name(result):
+    """Name of a DIS detonation result, e.g. 1: "entity impact"."""
+    return DETONATION_RESULTS.get(result, f"result {result}")
+
+
+def munition_name(munition_type):
+    """The DIS entity type of a munition with the names of its kind, domain, country and category, e.g.
+    "2.1.225.1.2.3.0 (munition, anti-air, USA, guided)". The name of the specific munition (e.g. AIM-120C) is in the entity
+    type mapping of the application (e.g. VR-Forces), not in the PDU."""
+    kind, domain, country, category = munition_type[:4]
+    numbers = ".".join(map(str, munition_type))
+    if kind != 2:
+        return f"{numbers} (kind {kind}, not a munition)"
+    names = ["munition", MUNITION_DOMAINS.get(domain, f"domain {domain}"), COUNTRIES.get(country, f"country {country}"),
+             MUNITION_CATEGORIES.get(category, f"category {category}")]
+    return f"{numbers} ({', '.join(names)})"
+
+
 def marking(record):
     """Text of an opendis EntityMarking, whose characters are read as signed bytes."""
     text = bytes(c & 0xFF for c in record.characters).split(b"\0", 1)[0]
@@ -248,7 +282,7 @@ class DISComm:
         self.simulation_address = (site_id, application_id)
         self.entities = {}          # RemoteEntity per entity ID (site, application, entity) of the other applications
         self.detonations = deque()  # Detonations of the other applications, removed by the user of DISComm
-        self.stats = {"received": 0, "sent": 0, "entity_states": 0, "fires": 0, "detonations": 0, "malformed": 0,
+        self.stats = {"received": 0, "sent": 0, "entity_states": 0, "fires": 0, "detonations": 0, "other": 0,
                       "receive_errors": 0, "send_errors": 0}
         self._event_number = 0
         self._readers = {ENTITY_STATE: self._read_entity_state, ENTITY_STATE_UPDATE: self._read_entity_state,
@@ -304,13 +338,13 @@ class DISComm:
             exercise_id, pdu_type = data[offset + 1], data[offset + 2]
             (length,) = struct.unpack_from(">H", data, offset + 8)
             if length < HEADER_LENGTH or offset + length > len(data):
-                self.stats["malformed"] += 1
+                self.stats["other"] += 1
                 return
             if exercise_id == self.exercise_id and pdu_type in self._readers:
                 try:
                     self._readers[pdu_type](data[offset:offset + length], now)
                 except Exception as e:  # e.g. struct.error of opendis for a truncated PDU, which must not stop the reception
-                    self.stats["malformed"] += 1
+                    self.stats["other"] += 1
                     self._last_error = f"PDU type {pdu_type}: {e!r}"
             offset += length
             # DIS 7 aligns bundled PDUs at 8 bytes

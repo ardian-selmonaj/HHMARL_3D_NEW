@@ -14,7 +14,7 @@ import time
 import numpy as np
 
 from comm.dis_comm import (DAMAGE_DESTROYED, DEACTIVATED, FLAMING, NO_ENTITY, POWER_PLANT_ON, SMOKE_PLUME, DISComm,
-                           dis_to_geodetic, geodetic_to_dis)
+                           detonation_result_name, dis_to_geodetic, geodetic_to_dis, munition_name)
 from env.sim import CannonSim
 
 FEET_TO_METERS = 0.3048
@@ -123,7 +123,7 @@ class DISBridge:
         """Summary of the DIS traffic."""
         stats = self.dis.stats
         return (f"DIS: {stats['received']} received ({stats['entity_states']} entity states, {stats['detonations']} "
-                f"detonations, {stats['malformed']} malformed), {stats['sent']} sent")
+                f"detonations, {stats['other']} other packets), {stats['sent']} sent")
 
     def before_reset(self, env):
         """Called at the start of AircraftEnv.reset(): binds the VR-F aircraft to VR-F entities, waiting until all are received."""
@@ -280,24 +280,35 @@ class DISBridge:
 
     def _apply_detonation(self, env, detonation):
         """Hits the aircraft of the env closest to a VR-F detonation, if within kill_radius, with the hit probability of the
-        cannon of the env. Like the cannon of the env, a VR-F teammate does not hit it."""
+        cannon of the env. Like the cannon of the env, a VR-F teammate does not hit it. Each detonation is printed."""
         shooter = next((aid for aid, key in self.bound.items() if key == detonation.firing_id), None)
+        description = (f"VR-F detonation of {self._shooter_name(shooter, detonation.firing_id)} "
+                       f"[munition {munition_name(detonation.munition_type)}, {detonation_result_name(detonation.result)}]")
         distances = [(float(np.linalg.norm(self._local_state(env.agents[aid])[0] - detonation.location)), aid)
                      for aid in self.local_aids
                      if env.agents[aid].alive and not (shooter is not None and shooter[0] == aid[0])]
         if not distances:
+            self._print(f"{description}, no aircraft of the env it can hit")
             return
         distance, aid = min(distances)
-        shooter_label = self.label(shooter) if shooter is not None else ":".join(map(str, detonation.firing_id))
         if distance > self.kill_radius:
-            if detonation.target_id == self._dis_id(aid):
-                self._print(f"Detonation of {shooter_label} {distance:.0f} m from its target {aid}, outside the kill radius")
+            target = "its target " if detonation.target_id == self._dis_id(aid) else ""
+            self._print(f"{description} {distance:.0f} m from {target}{aid}, outside the kill radius ({self.kill_radius:.0f} m)")
             return
         hit = random.random() < CannonSim.HIT_PROBABILITY
         if hit:
             env.agents[aid].shootdown()
-        self._print(f"Detonation of {shooter_label} {distance:.0f} m from {aid}: {'hit' if hit else 'missed'} "
+        self._print(f"{description} {distance:.0f} m from {aid}: {'hit' if hit else 'missed'} "
                     f"({CannonSim.HIT_PROBABILITY:.0%} hit probability)")
+
+    def _shooter_name(self, shooter, firing_id):
+        """Name of the firing entity of a detonation: the VR-F aircraft of the env with its marking, else the marking of the
+        received entity, else its DIS ID."""
+        if shooter is not None:
+            return self.label(shooter)
+        entity = self.dis.entities.get(firing_id)
+        dis_id = ":".join(map(str, firing_id))
+        return f"'{entity.marking}' ({dis_id})" if entity is not None and entity.marking else dis_id
 
     def _send_cannon_events(self, env):
         """Sends a fire PDU for each burst of the cannon of an aircraft of the env (CannonSim.launch()), and a detonation PDU
