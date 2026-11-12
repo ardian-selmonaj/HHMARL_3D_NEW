@@ -12,8 +12,9 @@ from rendering.flightsim import FlightSimClosed
 from train import process_args
 
 # Number of aircraft: friendlies B1 ... B{N_FRIENDLY} (RL agents), opponents R{N_FRIENDLY+1} ... R{N_FRIENDLY+N_OPP}.
-N_FRIENDLY = 2
-N_OPP = 2
+# The environment variables N_FRIENDLY and N_OPP override these defaults (set by run_windows.bat).
+N_FRIENDLY = int(os.environ.get("N_FRIENDLY", 2))
+N_OPP = int(os.environ.get("N_OPP", 2))
 
 RENDER = True
 RENDERER = "flightsim"  # "pygame": simple rendering of this repository, "flightsim": FlightSim (see README)
@@ -33,7 +34,7 @@ INIT_STATES = None
 
 # FlightSim settings (RENDER = True and RENDERER = "flightsim")
 JSBSIM_STATES = "python"  # "python": the JSBSim of this env simulates the aircraft, "c++": the JSBSim of FlightSim
-MANUAL = True            # True: a human flies B1 with the keyboard, as teammate of the RL agents B2 ... B{N_FRIENDLY} (needs N_FRIENDLY >= 2)
+MANUAL = os.environ.get("MANUAL", "1") == "1"  # True: a human flies B1 with the keyboard, as teammate of the RL agents B2 ... B{N_FRIENDLY} (needs N_FRIENDLY >= 2); env variable MANUAL = 1/0 (set by run_windows.bat)
 LOCATION = (8.965318, 45.975305)  # (longitude, latitude) of the battle field center in degrees, here Lugano
 MINIMAP = True            # map of the aircraft around the camera target in the bottom right corner (key M toggles it, N north-up/heading-up)
 MINIMAP_RANGE = 20000     # m, radius of the minimap; aircraft farther away are shown at its edge with their distance

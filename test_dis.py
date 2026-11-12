@@ -20,9 +20,9 @@ VRF_SIMULATION = False  # True: all aircraft, also the RL agents, are simulated 
                         # (not implemented yet). False: the RL agents are simulated by the JSBSim of this env, the VR-F aircraft by VR-F.
 
 # DIS network, as set in VR-Forces
-DIS_ADDRESS = "10.11.255.255"  # broadcast address of the network of VR-F (or the IP address of its computer, or a multicast group)
+DIS_ADDRESS = "127.255.255.255"  # broadcast address of the network of VR-F (or the IP address of its computer, or a multicast group)
 DIS_PORT = 3000                # UDP port
-EXERCISE_ID = 1                # DIS exercise ID of the VR-F scenario
+EXERCISE_ID = 45               # DIS exercise ID of the VR-F scenario
 SITE_ID = 1                    # DIS site and application ID of this program, the application ID must differ from the one of VR-F
 APPLICATION_ID = 8492
 # (site, application, entity number)
