@@ -14,7 +14,7 @@ import time
 import numpy as np
 
 from comm.dis_comm import (DAMAGE_DESTROYED, DEACTIVATED, FLAMING, NO_ENTITY, POWER_PLANT_ON, SMOKE_PLUME, DISComm,
-                           detonation_result_name, dis_to_geodetic, geodetic_to_dis, munition_name)
+                           detonation_result_name, dis_to_geodetic, geodetic_to_dis)
 from env.sim import CannonSim
 
 FEET_TO_METERS = 0.3048
@@ -283,23 +283,18 @@ class DISBridge:
         cannon of the env. Like the cannon of the env, a VR-F teammate does not hit it. Each detonation is printed."""
         shooter = next((aid for aid, key in self.bound.items() if key == detonation.firing_id), None)
         description = (f"VR-F detonation of {self._shooter_name(shooter, detonation.firing_id)} "
-                       f"[munition {munition_name(detonation.munition_type)}, {detonation_result_name(detonation.result)}]")
+                       f"[munition {'.'.join(map(str, detonation.munition_type))}, "
+                       f"{detonation_result_name(detonation.result)}]")
         distances = [(float(np.linalg.norm(self._local_state(env.agents[aid])[0] - detonation.location)), aid)
                      for aid in self.local_aids
                      if env.agents[aid].alive and not (shooter is not None and shooter[0] == aid[0])]
         if not distances:
-            self._print(f"{description}, no aircraft of the env it can hit")
+            self._print(description)
             return
         distance, aid = min(distances)
-        if distance > self.kill_radius:
-            target = "its target " if detonation.target_id == self._dis_id(aid) else ""
-            self._print(f"{description} {distance:.0f} m from {target}{aid}, outside the kill radius ({self.kill_radius:.0f} m)")
-            return
-        hit = random.random() < CannonSim.HIT_PROBABILITY
-        if hit:
+        self._print(f"{description}, {distance:.0f} m from {aid}")
+        if distance <= self.kill_radius and random.random() < CannonSim.HIT_PROBABILITY:
             env.agents[aid].shootdown()
-        self._print(f"{description} {distance:.0f} m from {aid}: {'hit' if hit else 'missed'} "
-                    f"({CannonSim.HIT_PROBABILITY:.0%} hit probability)")
 
     def _shooter_name(self, shooter, firing_id):
         """Name of the firing entity of a detonation: the VR-F aircraft of the env with its marking, else the marking of the

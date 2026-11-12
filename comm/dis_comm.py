@@ -131,7 +131,7 @@ def entity_type(record):
             record.extra)
 
 
-# Names of DIS enumerations (SISO-REF-010) for the messages. A PDU only carries the numbers.
+# Names of the DIS detonation results (SISO-REF-010) for the messages. A PDU only carries the numbers.
 DETONATION_RESULTS = {
     0: "other", 1: "entity impact", 2: "entity proximate detonation", 3: "ground impact", 4: "ground proximate detonation",
     5: "detonation", 6: "none or no detonation (dud)", 7: "HE hit, small", 8: "HE hit, medium", 9: "HE hit, large",
@@ -140,29 +140,11 @@ DETONATION_RESULTS = {
     18: "building hit, small", 19: "building hit, medium", 20: "building hit, large", 21: "mine-clearing line charge",
     22: "environment object impact", 23: "environment object proximate detonation", 24: "water impact", 25: "air burst",
 }
-MUNITION_DOMAINS = {1: "anti-air", 2: "anti-armor", 3: "anti-guided weapon", 4: "anti-radar", 5: "anti-submarine",
-                    6: "anti-ship", 7: "bomb", 8: "battlefield support", 9: "strategic", 10: "tactical",
-                    11: "directed energy"}
-MUNITION_CATEGORIES = {1: "guided", 2: "ballistic", 3: "fixed"}
-COUNTRIES = {45: "China", 71: "France", 78: "Germany", 222: "Russia", 224: "UK", 225: "USA"}
 
 
 def detonation_result_name(result):
     """Name of a DIS detonation result, e.g. 1: "entity impact"."""
     return DETONATION_RESULTS.get(result, f"result {result}")
-
-
-def munition_name(munition_type):
-    """The DIS entity type of a munition with the names of its kind, domain, country and category, e.g.
-    "2.1.225.1.2.3.0 (munition, anti-air, USA, guided)". The name of the specific munition (e.g. AIM-120C) is in the entity
-    type mapping of the application (e.g. VR-Forces), not in the PDU."""
-    kind, domain, country, category = munition_type[:4]
-    numbers = ".".join(map(str, munition_type))
-    if kind != 2:
-        return f"{numbers} (kind {kind}, not a munition)"
-    names = ["munition", MUNITION_DOMAINS.get(domain, f"domain {domain}"), COUNTRIES.get(country, f"country {country}"),
-             MUNITION_CATEGORIES.get(category, f"category {category}")]
-    return f"{numbers} ({', '.join(names)})"
 
 
 def marking(record):
